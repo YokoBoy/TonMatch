@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CryptoMatch - Leaderboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.ico">
+  <style>
+    body {
+      margin: 0;
+      padding-bottom: 60px;
+      background: linear-gradient(135deg, #1a1a2e, #2a2a4e, #1a1a2e);
+      background-size: 200% 200%;
+      animation: gradientShift 10s ease infinite;
+      color: #fff;
+      font-family: 'Press Start 2P', cursive;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.2s;
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    #ui {
+      margin-top: 1rem;
+      text-align: center;
+      z-index: 2;
+      width: 90%;
+      max-width: 400px;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.4s;
+    }
+    h1 {
+      font-size: 1.2rem;
+      background: linear-gradient(45deg, #ff6f61, #00C4E0);
+      -webkit-background-clip: text;
+      color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .leaderboard {
+      background: #2a2a4e;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(255,111,97,0.3);
+      margin: 1rem 0;
+    }
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem;
+      border-bottom: 1px solid #3a3a6e;
+      font-size: 0.8rem;
+    }
+    .leaderboard-item:last-child {
+      border-bottom: none;
+    }
+    .player-rank {
+      color: #ff6f61;
+    }
+    .player-score {
+      color: #00C4E0;
+    }
+    .navbar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(26, 26, 46, 0.9);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      border-top: 2px solid #fff;
+      z-index: 1000;
+    }
+    .navbar a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.7rem;
+      text-align: center;
+      flex: 1;
+      padding: 0.5rem;
+    }
+    .navbar a:hover, .navbar a.active {
+      color: #ff6f61;
+      border-bottom: 2px solid #ff6f61;
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1rem; }
+      .leaderboard-item { font-size: 0.7rem; }
+      .navbar a { font-size: 0.6rem; padding: 0.3rem; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="ui">
+    <h1>🏆 Leaderboard</h1>
+    <div class="leaderboard">
+      <div class="leaderboard-item">
+        <span class="player-rank">1.</span>
+        <span>You</span>
+        <span class="player-score" id="player-score">0</span>
+      </div>
+      <p style="font-size: 0.7rem; color: #aaa;">More players coming soon!</p>
+    </div>
+  </div>
+  <div class="navbar">
+    <a href="index.html">🏠 Home</a>
+    <a href="game.html">🎮 Play</a>
+    <a href="profile.html">👤 Profile</a>
+    <a href="leaderboard.html" class="active">🏆 Leaderboard</a>
+  </div>
+<script>
+// Load game state
+function loadGameState() {
+  try {
+    let playerName = localStorage.getItem('playerName') || 'Player';
+    let playerId = localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString();
+    let avatar = localStorage.getItem('avatar') || 'images/avatar-placeholder.png';
+    let totalScore = parseInt(localStorage.getItem('totalScore') || '0');
+    let matchTokens = parseInt(localStorage.getItem('matchTokens') || '0');
+    let missionLevel = parseInt(localStorage.getItem('missionLevel') || '1');
+    let missionGoal = parseInt(localStorage.getItem('missionGoal') || '10');
+    let missionToken = localStorage.getItem('missionToken') || 'ton';
+    let missionHistory = JSON.parse(localStorage.getItem('missionHistory') || '[]');
+    let referrals = parseInt(localStorage.getItem('referrals') || '0');
+    let walletAddress = localStorage.getItem('walletAddress') || 'Not connected';
+
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      let user = Telegram.WebApp.initDataUnsafe.user || {};
+      playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
+      playerId = user.id ? user.id.toString() : playerId;
+      avatar = user.photo_url || avatar;
+      Telegram.WebApp.CloudStorage.getItems([
+        'playerName', 'playerId', 'avatar', 'totalScore', 'matchTokens', 'missionLevel',
+        'missionGoal', 'missionToken', 'missionHistory', 'referrals', 'walletAddress'
+      ], (err, values) => {
+        if (!err && values) {
+          playerName = values.playerName || playerName;
+          playerId = values.playerId || playerId;
+          avatar = values.avatar || avatar;
+          totalScore = parseInt(values.totalScore) || totalScore;
+          matchTokens = parseInt(values.matchTokens) || matchTokens;
+          missionLevel = parseInt(values.missionLevel) || missionLevel;
+          missionGoal = parseInt(values.missionGoal) || missionGoal;
+          missionToken = values.missionToken || missionToken;
+          missionHistory = JSON.parse(values.missionHistory || '[]');
+          referrals = parseInt(values.referrals) || referrals;
+          walletAddress = values.walletAddress || walletAddress;
+          updateLeaderboardUI();
+          saveGameState();
+        } else if (err) {
+          console.warn('CloudStorage load error:', err);
+        }
+      });
+    }
+
+    updateLeaderboardUI();
+
+    function updateLeaderboardUI() {
+      document.getElementById('player-score').innerText = totalScore;
+    }
+
+    console.log('Leaderboard initialized:', { playerName, playerId, totalScore, matchTokens });
+  } catch (e) {
+    console.error('Leaderboard init error:', e);
+  }
+}
+
+// Save game state
+function saveGameState() {
+  try {
+    localStorage.setItem('playerName', localStorage.getItem('playerName') || 'Player');
+    localStorage.setItem('playerId', localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString());
+    localStorage.setItem('avatar', localStorage.getItem('avatar') || 'images/avatar-placeholder.png');
+    localStorage.setItem('totalScore', localStorage.getItem('totalScore') || '0');
+    localStorage.setItem('matchTokens', localStorage.getItem('matchTokens') || '0');
+    localStorage.setItem('missionLevel', localStorage.getItem('missionLevel') || '1');
+    localStorage.setItem('missionGoal', localStorage.getItem('missionGoal') || '10');
+    localStorage.setItem('missionToken', localStorage.getItem('missionToken') || 'ton');
+    localStorage.setItem('missionHistory', localStorage.getItem('missionHistory') || '[]');
+    localStorage.setItem('referrals', localStorage.getItem('referrals') || '0');
+    localStorage.setItem('walletAddress', localStorage.getItem('walletAddress') || 'Not connected');
+
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
+      Telegram.WebApp.CloudStorage.setItems({
+        'playerName': localStorage.getItem('playerName'),
+        'playerId': localStorage.getItem('playerId'),
+        'avatar': localStorage.getItem('avatar'),
+        'totalScore': localStorage.getItem('totalScore'),
+        'matchTokens': localStorage.getItem('matchTokens'),
+        'missionLevel': localStorage.getItem('missionLevel'),
+        'missionGoal': localStorage.getItem('missionGoal'),
+        'missionToken': localStorage.getItem('missionToken'),
+        'missionHistory': localStorage.getItem('missionHistory'),
+        'referrals': localStorage.getItem('referrals'),
+        'walletAddress': localStorage.getItem('walletAddress')
+      }, (err) => {
+        if (err) console.warn('CloudStorage save error:', err);
+        else console.log('Game state saved to CloudStorage');
+      });
+    }
+    console.log('Game state saved');
+  } catch (e) {
+    console.error('Save game state error:', e);
+  }
+}
+
+// Initialize
+window.onload = loadGameState;
+</script>
+</body>
+</html>

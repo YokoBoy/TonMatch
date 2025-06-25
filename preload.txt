@@ -1,0 +1,12 @@
+function preload() {
+  try {
+    tokenImages['ton'] = loadImage('images/ton.png');
+    tokenImages['btc'] = loadImage('images/btc.png');
+    tokenImages['not'] = loadImage('images/not.png');
+    tokenImages['sol'] = loadImage('images/sol.png');
+    tokenImages['usdt'] = loadImage('images/usdt.png');
+    console.log('Preloaded token images');
+  } catch (e) {
+    console.error('Preload error:', e);
+  }
+}

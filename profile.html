@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CryptoMatch - Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js" defer></script>
+  <style>
+    body {
+      margin: 0;
+      padding-bottom: 60px;
+      background: linear-gradient(135deg, #1a1a2e, #2a2a4e, #1a1a2e);
+      background-size: 200% 200%;
+      animation: gradientShift 10s ease infinite;
+      color: #fff;
+      font-family: 'Press Start 2P', cursive;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.2s;
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    #ui {
+      margin-top: 1rem;
+      text-align: center;
+      z-index: 2;
+      width: 90%;
+      max-width: 400px;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.4s;
+    }
+    .profile-card {
+      background: linear-gradient(135deg, #2a2a4e, #3a3a6e);
+      padding: 1.5rem;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(255,111,97,0.3);
+      margin-bottom: 1rem;
+      transform: translateY(20px);
+      animation: slideIn 0.5s forwards;
+    }
+    @keyframes slideIn {
+      to { transform: translateY(0); }
+    }
+    .avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 3px solid #ff6f61;
+      margin-bottom: 0.5rem;
+    }
+    h2 {
+      font-size: 1rem;
+      margin: 0.5rem 0;
+      background: linear-gradient(45deg, #ff6f61, #00C4E0);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .stat-card {
+      background: #2a2a4e;
+      padding: 0.5rem;
+      border-radius: 8px;
+      font-size: 0.7rem;
+    }
+    .mission-history {
+      background: #2a2a4e;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-top: 1rem;
+      font-size: 0.7rem;
+    }
+    .mission-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid #3a3a6e;
+    }
+    button {
+      padding: 0.8rem 1.5rem;
+      margin: 0.5rem;
+      background: linear-gradient(45deg, #ff6f61, #ff3b2f);
+      border: 2px solid #fff;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: 'Press Start 2P', cursive;
+      transition: transform 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background: #4a4a6e;
+      border: 2px solid #666;
+      color: #aaa;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .pulse {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .navbar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(26, 26, 46, 0.9);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      border-top: 2px solid #fff;
+      z-index: 1000;
+    }
+    .navbar a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.7rem;
+      text-align: center;
+      flex: 1;
+      padding: 0.5rem;
+    }
+    .navbar a:hover, .navbar a.active {
+      color: #ff6f61;
+      border-bottom: 2px solid #ff6f61;
+    }
+    @media (max-width: 600px) {
+      h2 { font-size: 0.9rem; }
+      .avatar { width: 80px; height: 80px; }
+      .stat-card, .mission-history { font-size: 0.6rem; }
+      button { font-size: 0.7rem; padding: 0.6rem 1rem; }
+      .navbar a { font-size: 0.6rem; padding: 0.3rem; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="ui">
+    <div class="profile-card">
+      <img id="avatar" src="images/avatar-placeholder.png" alt="Avatar" class="avatar">
+      <h2 id="player-name">Player</h2>
+      <p id="player-id" style="font-size: 0.7rem; color: #aaa;">Player ID: #000000</p>
+      <p id="wallet-address" style="font-size: 0.7rem; color: #aaa;">Wallet: Not connected</p>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <p>🏆 Total Score</p>
+          <p id="total-score">0</p>
+        </div>
+        <div class="stat-card">
+          <p>💰 $MATCH Tokens</p>
+          <p id="match-tokens">0</p>
+        </div>
+        <div class="stat-card">
+          <p>🎯 Mission Level</p>
+          <p id="mission-level">1</p>
+        </div>
+        <div class="stat-card">
+          <p>🤝 Referrals</p>
+          <p id="referrals">0</p>
+        </div>
+      </div>
+      <button id="connect-wallet" onclick="connectWallet()" class="pulse">
+        <span>💎 Connect Wallet</span>
+      </button>
+      <button onclick="withdrawTokens()" disabled title="Awaiting $MATCH Token Listing">Withdraw $MATCH</button>
+      <button onclick="shareReferral()">Invite Friends 🤝</button>
+      <button disabled title="Shop Coming Soon">Shop 🛒</button>
+      <button disabled title="View Referrals Coming Soon">View Referrals 👥</button>
+      <button disabled title="Boosts Coming Soon">Boosts 🚀</button>
+    </div>
+    <div class="mission-history">
+      <h3>Mission History</h3>
+      <div id="mission-list"></div>
+    </div>
+  </div>
+  <div class="navbar">
+    <a href="index.html">🏠 Home</a>
+    <a href="game.html">🎮 Play</a>
+    <a href="profile.html" class="active">👤 Profile</a>
+    <a href="leaderboard.html">🏆 Leaderboard</a>
+  </div>
+<script>
+function loadGameState() {
+  try {
+    // Load from localStorage first
+    let playerName = localStorage.getItem('playerName') || 'Player';
+    let playerId = localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString();
+    let avatar = localStorage.getItem('avatar') || 'images/avatar-placeholder.png';
+    let totalScore = parseInt(localStorage.getItem('totalScore') || '0');
+    let matchTokens = parseInt(localStorage.getItem('matchTokens') || '0');
+    let missionLevel = parseInt(localStorage.getItem('missionLevel') || '1');
+    let missionGoal = parseInt(localStorage.getItem('missionGoal') || '10');
+    let missionToken = localStorage.getItem('missionToken') || 'ton';
+    let missionHistory = JSON.parse(localStorage.getItem('missionHistory') || '[]');
+    let referrals = parseInt(localStorage.getItem('referrals') || '0');
+    let walletAddress = localStorage.getItem('walletAddress') || 'Not connected';
+
+    // Update UI immediately with localStorage data
+    updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
+
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      let user = Telegram.WebApp.initDataUnsafe.user || {};
+      playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
+      playerId = user.id ? user.id.toString() : playerId;
+      avatar = user.photo_url || avatar;
+
+      // Sync with CloudStorage
+      Telegram.WebApp.CloudStorage.getItems([
+        'playerName', 'playerId', 'avatar', 'totalScore', 'matchTokens', 'missionLevel',
+        'missionGoal', 'missionToken', 'missionHistory', 'referrals', 'walletAddress'
+      ], (err, values) => {
+        if (!err && values) {
+          // Update variables with CloudStorage data
+          playerName = values.playerName || playerName;
+          playerId = values.playerId || playerId;
+          avatar = values.avatar || avatar;
+          totalScore = parseInt(values.totalScore) || totalScore;
+          matchTokens = parseInt(values.matchTokens) || matchTokens;
+          missionLevel = parseInt(values.missionLevel) || missionLevel;
+          missionGoal = parseInt(values.missionGoal) || missionGoal;
+          missionToken = values.missionToken || missionToken;
+          missionHistory = JSON.parse(values.missionHistory || '[]');
+          referrals = parseInt(values.referrals) || referrals;
+          walletAddress = values.walletAddress || walletAddress;
+
+          // Save to localStorage
+          localStorage.setItem('playerName', playerName);
+          localStorage.setItem('playerId', playerId);
+          localStorage.setItem('avatar', avatar);
+          localStorage.setItem('totalScore', totalScore.toString());
+          localStorage.setItem('matchTokens', matchTokens.toString());
+          localStorage.setItem('missionLevel', missionLevel.toString());
+          localStorage.setItem('missionGoal', missionGoal.toString());
+          localStorage.setItem('missionToken', missionToken);
+          localStorage.setItem('missionHistory', JSON.stringify(missionHistory));
+          localStorage.setItem('referrals', referrals.toString());
+          localStorage.setItem('walletAddress', walletAddress);
+
+          // Update UI and save state
+          updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
+          saveGameState();
+          console.log('Profile synced with CloudStorage:', { playerName, playerId, totalScore, matchTokens, walletAddress });
+        } else if (err) {
+          console.warn('CloudStorage load error:', err);
+          updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
+        }
+      });
+    }
+
+    console.log('Profile initialized:', { playerName, playerId, totalScore, matchTokens, walletAddress });
+  } catch (e) {
+    console.error('Profile init error:', e);
+  }
+}
+
+function saveGameState() {
+  try {
+    localStorage.setItem('playerName', localStorage.getItem('playerName') || 'Player');
+    localStorage.setItem('playerId', localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString());
+    localStorage.setItem('avatar', localStorage.getItem('avatar') || 'images/avatar-placeholder.png');
+    localStorage.setItem('totalScore', localStorage.getItem('totalScore') || '0');
+    localStorage.setItem('matchTokens', localStorage.getItem('matchTokens') || '0');
+    localStorage.setItem('missionLevel', localStorage.getItem('missionLevel') || '1');
+    localStorage.setItem('missionGoal', localStorage.getItem('missionGoal') || '10');
+    localStorage.setItem('missionToken', localStorage.getItem('missionToken') || 'ton');
+    localStorage.setItem('missionHistory', localStorage.getItem('missionHistory') || '[]');
+    localStorage.setItem('referrals', localStorage.getItem('referrals') || '0');
+    localStorage.setItem('walletAddress', localStorage.getItem('walletAddress') || 'Not connected');
+
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
+      Telegram.WebApp.CloudStorage.setItems({
+        'playerName': localStorage.getItem('playerName'),
+        'playerId': localStorage.getItem('playerId'),
+        'avatar': localStorage.getItem('avatar'),
+        'totalScore': localStorage.getItem('totalScore'),
+        'matchTokens': localStorage.getItem('matchTokens'),
+        'missionLevel': localStorage.getItem('missionLevel'),
+        'missionGoal': localStorage.getItem('missionGoal'),
+        'missionToken': localStorage.getItem('missionToken'),
+        'missionHistory': localStorage.getItem('missionHistory'),
+        'referrals': localStorage.getItem('referrals'),
+        'walletAddress': localStorage.getItem('walletAddress')
+      }, (err) => {
+        if (err) {
+          console.warn('CloudStorage save error:', err);
+        } else {
+          console.log('Game state saved to CloudStorage');
+        }
+      });
+    }
+    console.log('Game state saved:', {
+      playerName: localStorage.getItem('playerName'),
+      totalScore: localStorage.getItem('totalScore'),
+      matchTokens: localStorage.getItem('matchTokens'),
+      walletAddress: localStorage.getItem('walletAddress')
+    });
+  } catch (e) {
+    console.error('Save game state error:', e);
+  }
+}
+
+async function connectWallet() {
+  try {
+    if (!window.TONConnect) {
+      console.warn('TONConnect SDK not loaded');
+      if (window.Telegram && window.Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Error',
+          message: 'TONConnect SDK failed to load. Please try again later.',
+          buttons: [{ type: 'ok', text: 'OK' }]
+        });
+      } else {
+        alert('TONConnect SDK failed to load. Please try again later.');
+      }
+      return;
+    }
+
+    if (window.Telegram && window.Telegram.WebApp) {
+      const connector = new TONConnect.SDK();
+      const wallet = await connector.connect({
+        universalLink: 'https://tonconnect.app',
+        bridgeUrl: 'https://bridge.tonapi.io/bridge'
+      });
+      if (wallet) {
+        const address = wallet.account.address;
+        localStorage.setItem('walletAddress', address);
+        saveGameState();
+        updateProfileUI(
+          localStorage.getItem('playerName'),
+          localStorage.getItem('playerId'),
+          localStorage.getItem('avatar'),
+          parseInt(localStorage.getItem('totalScore') || '0'),
+          parseInt(localStorage.getItem('matchTokens') || '0'),
+          parseInt(localStorage.getItem('missionLevel') || '1'),
+          JSON.parse(localStorage.getItem('missionHistory') || '[]'),
+          parseInt(localStorage.getItem('referrals') || '0'),
+          address
+        );
+        console.log('Wallet connected:', address);
+      }
+    } else {
+      alert('Please open this game in Telegram to connect a wallet.');
+    }
+  } catch (e) {
+    console.error('Wallet connect error:', e);
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.showPopup({
+        title: 'Error',
+        message: 'Failed to connect wallet. Try again.',
+        buttons: [{ type: 'ok', text: 'OK' }]
+      });
+    } else {
+      alert('Failed to connect wallet. Try again.');
+    }
+  }
+}
+
+function withdrawTokens() {
+  try {
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.showPopup({
+        title: 'Withdraw $MATCH',
+        message: 'Withdrawal feature awaiting $MATCH token listing!',
+        buttons: [{ type: 'ok', text: 'OK' }]
+      });
+    } else {
+      alert('Withdrawal feature awaiting $MATCH token listing!');
+    }
+    console.log('Withdraw attempted');
+  } catch (e) {
+    console.error('Withdraw error:', e);
+  }
+}
+
+function shareReferral() {
+  try {
+    let referralLink = `https://t.me/CryptoMatchBot?start=${btoa(localStorage.getItem('playerId') || '000000')}`;
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.showPopup({
+        title: 'Invite Friends',
+        message: 'Share your referral link to earn $MATCH!',
+        buttons: [{ type: 'ok', text: 'Share', id: 'share' }]
+      }, (buttonId) => {
+        if (buttonId === 'share') {
+          Telegram.WebApp.shareUrl(referralLink, 'Join CryptoMatch and earn $MATCH tokens!');
+          let referrals = parseInt(localStorage.getItem('referrals') || '0') + 1;
+          localStorage.setItem('referrals', referrals.toString());
+          saveGameState();
+          updateProfileUI(
+            localStorage.getItem('playerName'),
+            localStorage.getItem('playerId'),
+            localStorage.getItem('avatar'),
+            parseInt(localStorage.getItem('totalScore') || '0'),
+            parseInt(localStorage.getItem('matchTokens') || '0'),
+            parseInt(localStorage.getItem('missionLevel') || '1'),
+            JSON.parse(localStorage.getItem('missionHistory') || '[]'),
+            referrals,
+            localStorage.getItem('walletAddress')
+          );
+          console.log('Referral shared, referrals:', referrals);
+        }
+      });
+    } else {
+      alert(`Share this link: ${referralLink}`);
+    }
+    console.log('Referral link shared:', referralLink);
+  } catch (e) {
+    console.error('Share referral error:', e);
+  }
+}
+
+function updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress) {
+  document.getElementById('player-name').innerText = playerName || 'Player';
+  document.getElementById('player-id').innerText = `Player ID: #${playerId || '000000'}`;
+  document.getElementById('avatar').src = avatar || 'images/avatar-placeholder.png';
+  document.getElementById('total-score').innerText = totalScore || 0;
+  document.getElementById('match-tokens').innerText = matchTokens || 0;
+  document.getElementById('mission-level').innerText = missionLevel || 1;
+  document.getElementById('referrals').innerText = referrals || 0;
+  document.getElementById('wallet-address').innerText = walletAddress === 'Not connected' || !walletAddress ? 
+    'Wallet: Not connected' : 
+    `Wallet: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
+  document.getElementById('mission-list').innerHTML = (missionHistory || []).slice(-5).map(m => `
+    <div class="mission-item">
+      <span>${(m.token || 'ton').toUpperCase()} Mission Lv${m.level || 1}</span>
+      <span>+${m.reward || 0} $MATCH</span>
+    </div>
+  `).join('');
+  if (walletAddress && walletAddress !== 'Not connected') {
+    document.getElementById('connect-wallet').innerText = 'Wallet Connected';
+    document.getElementById('connect-wallet').classList.remove('pulse');
+  }
+  console.log('Profile UI updated:', { playerName, playerId, totalScore, matchTokens, walletAddress });
+}
+
+window.onload = loadGameState;
+</script>
+</body>
+</html>

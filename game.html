@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CryptoMatch - Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <link rel="icon" href="favicon.ico">
+  <style>
+    body { 
+      margin: 0; 
+      padding-bottom: 60px; 
+      background: linear-gradient(135deg, #1a1a2e, #2a2a4e, #1a1a2e);
+      background-size: 200% 200%;
+      animation: gradientShift 10s ease infinite;
+      color: #fff; 
+      font-family: 'Press Start 2P', cursive; 
+      min-height: 100vh; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      overflow-x: hidden;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.2s;
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    canvas { 
+      width: 90vw; 
+      max-width: 400px; 
+      border: 4px solid #fff; 
+      border-radius: 10px; 
+      margin-top: 1rem; 
+      box-shadow: 0 0 10px rgba(255,255,255,0.5); 
+      z-index: 1; 
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #ui { 
+      margin-top: 1rem; 
+      text-align: center; 
+      z-index: 2; 
+      width: 90%;
+      max-width: 400px;
+      opacity: 0;
+      animation: fadeIn 0.5s forwards 0.4s;
+    }
+    button { 
+      padding: 0.8rem 1.5rem; 
+      margin: 0.5rem; 
+      background: linear-gradient(45deg, #ff6f61, #ff3b2f);
+      border: 2px solid #fff; 
+      border-radius: 8px; 
+      color: #fff; 
+      cursor: pointer; 
+      font-size: 0.8rem; 
+      font-family: 'Press Start 2P', cursive; 
+      transition: transform 0.2s;
+    }
+    button:hover { 
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background: #4a4a6e;
+      border: 2px solid #666;
+      color: #aaa;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .pulse {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    h2 { 
+      font-size: 1rem; 
+      margin: 0.5rem 0; 
+      background: linear-gradient(45deg, #ff6f61, #00C4E0);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    h3 { 
+      font-size: 0.8rem; 
+      margin: 0.3rem 0; 
+      text-shadow: 1px 1px #000; 
+    }
+    .progress-bar {
+      width: 80%;
+      height: 20px;
+      background: linear-gradient(90deg, #333, #2a2a4e);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 0.5rem auto;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+    }
+    #mission-progress {
+      height: 100%;
+      background: linear-gradient(45deg, #00C4E0, #26A17B);
+      transition: width 0.5s ease;
+      box-shadow: 0 0 5px rgba(0,196,224,0.5);
+    }
+    .game-over { 
+      font-size: 1rem; 
+      color: #ff3b2e; 
+      animation: blink 1s infinite; 
+    }
+    @keyframes blink {
+      50% { opacity: 0.5; }
+    }
+    .navbar { 
+      position: fixed; 
+      bottom: 0; 
+      width: 100%; 
+      background: rgba(26, 26, 46, 0.8); 
+      display: flex; 
+      justify-content: space-around; 
+      padding: 0.5rem 0; 
+      border-top: 2px solid #fff; 
+      z-index: 1000; 
+    }
+    .navbar a { 
+      color: #fff; 
+      text-decoration: none; 
+      font-size: 0.7rem; 
+      text-align: center; 
+      flex: 1; 
+      padding: 0.5rem; 
+    }
+    .navbar a:hover, .navbar a.active { 
+      color: #ff6f61; 
+      border-bottom: 2px solid #ff6f61; 
+    }
+    @media (max-width: 600px) {
+      canvas { width: 85vw; }
+      h2 { font-size: 0.9rem; }
+      h3 { font-size: 0.7rem; }
+      button { font-size: 0.7rem; padding: 0.6rem 1rem; }
+      .navbar a { font-size: 0.6rem; padding: 0.3rem; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game"></div>
+  <div id="ui">
+    <h2>Score: <span id="score">0</span></h2>
+    <h3>Moves Left: <span id="moves">20</span></h3>
+    <h3>Mission: <span id="mission">0</span>/<span id="missionGoal">10</span> 💎 <span id="missionToken">TON</span></h3>
+    <div class="progress-bar">
+      <div id="mission-progress" style="width: 0%;"></div>
+    </div>
+    <button id="startButton" onclick="startGame()" class="pulse">Start Game</button>
+    <button id="pauseButton" onclick="pauseGame()" style="display: none;">Pause</button>
+    <button id="claimButton" onclick="claimTokens()" style="display: none;">Claim 100 $MATCH</button>
+    <p id="gameOver" class="game-over" style="display: none;">Game Over!</p>
+  </div>
+  <div class="navbar">
+    <a href="index.html">🏠 Home</a>
+    <a href="game.html" class="active">🎮 Play</a>
+    <a href="profile.html">👤 Profile</a>
+    <a href="leaderboard.html">🏆 Leaderboard</a>
+  </div>
+<script>
+// Game variables
+let grid = [];
+const gridSize = 8;
+let tileSize;
+const tokens = ['ton', 'btc', 'not', 'sol', 'usdt'];
+let tokenImages = {};
+const fallbackColors = {
+  'ton': '#00C4E0', 'btc': '#F7931A', 'not': '#800080', 'sol': '#DC1FFF', 'usdt': '#26A17B'
+};
+let selectedTile = null;
+let score = 0;
+let totalScore = 0;
+let matchTokens = 0;
+let moves = 20;
+let missionToken = 'ton';
+let missionProgress = 0;
+let missionGoal = 10;
+let missionLevel = 1;
+let missionCompleted = false;
+let gameStarted = false;
+let matches = { matches: [], groups: [] };
+let animationState = 'idle';
+let swapAnimation = null;
+let fadingTiles = [];
+let fallingTiles = [];
+let clickPoints = [];
+let canvas = null;
+const animationDuration = 30;
+
+// Preload assets
+function preload() {
+  try {
+    tokenImages['ton'] = loadImage('images/ton.png');
+    tokenImages['btc'] = loadImage('images/btc.png');
+    tokenImages['not'] = loadImage('images/not.png');
+    tokenImages['sol'] = loadImage('images/sol.png');
+    tokenImages['usdt'] = loadImage('images/usdt.png');
+    console.log('Preloaded token images');
+  } catch (e) {
+    console.error('Preload error:', e);
+  }
+}
+
+// Load game state
+function loadGameState() {
+  try {
+    totalScore = parseInt(localStorage.getItem('totalScore') || '0');
+    matchTokens = parseInt(localStorage.getItem('matchTokens') || '0');
+    missionLevel = parseInt(localStorage.getItem('missionLevel') || '1');
+    missionGoal = parseInt(localStorage.getItem('missionGoal') || '10');
+    missionToken = localStorage.getItem('missionToken') || 'ton';
+    let missionHistory = JSON.parse(localStorage.getItem('missionHistory') || '[]');
+    let playerName = localStorage.getItem('playerName') || 'Player';
+    let playerId = localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString();
+    let avatar = localStorage.getItem('avatar') || 'images/avatar-placeholder.png';
+    let referrals = parseInt(localStorage.getItem('referrals') || '0');
+    let walletAddress = localStorage.getItem('walletAddress') || 'Not connected';
+
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      let user = Telegram.WebApp.initDataUnsafe.user || {};
+      playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
+      playerId = user.id ? user.id.toString() : playerId;
+      avatar = user.photo_url || avatar;
+      Telegram.WebApp.CloudStorage.getItems([
+        'totalScore', 'matchTokens', 'missionLevel', 'missionGoal', 'missionToken', 'missionHistory',
+        'playerName', 'playerId', 'avatar', 'referrals', 'walletAddress'
+      ], (err, values) => {
+        if (!err && values) {
+          totalScore = parseInt(values.totalScore) || totalScore;
+          matchTokens = parseInt(values.matchTokens) || matchTokens;
+          missionLevel = parseInt(values.missionLevel) || missionLevel;
+          missionGoal = parseInt(values.missionGoal) || missionGoal;
+          missionToken = values.missionToken || missionToken;
+          missionHistory = JSON.parse(values.missionHistory || '[]');
+          playerName = values.playerName || playerName;
+          playerId = values.playerId || playerId;
+          avatar = values.avatar || avatar;
+          referrals = parseInt(values.referrals) || referrals;
+          walletAddress = values.walletAddress || walletAddress;
+          saveGameState();
+        } else if (err) {
+          console.warn('CloudStorage load error:', err);
+        }
+      });
+    }
+
+    localStorage.setItem('totalScore', totalScore.toString());
+    localStorage.setItem('matchTokens', matchTokens.toString());
+    localStorage.setItem('missionLevel', missionLevel.toString());
+    localStorage.setItem('missionGoal', missionGoal.toString());
+    localStorage.setItem('missionToken', missionToken);
+    localStorage.setItem('missionHistory', JSON.stringify(missionHistory));
+    localStorage.setItem('playerName', playerName);
+    localStorage.setItem('playerId', playerId);
+    localStorage.setItem('avatar', avatar);
+    localStorage.setItem('referrals', referrals.toString());
+    localStorage.setItem('walletAddress', walletAddress);
+
+    updateMissionUI();
+    console.log('Game state loaded:', { totalScore, matchTokens, missionLevel, missionGoal, missionToken, playerName, playerId });
+  } catch (e) {
+    console.error('Load game state error:', e);
+  }
+}
+
+// Save game state
+function saveGameState() {
+  try {
+    localStorage.setItem('totalScore', totalScore.toString());
+    localStorage.setItem('matchTokens', matchTokens.toString());
+    localStorage.setItem('missionLevel', missionLevel.toString());
+    localStorage.setItem('missionGoal', missionGoal.toString());
+    localStorage.setItem('missionToken', missionToken);
+    localStorage.setItem('missionHistory', JSON.stringify(JSON.parse(localStorage.getItem('missionHistory') || '[]')));
+    localStorage.setItem('playerName', localStorage.getItem('playerName') || 'Player');
+    localStorage.setItem('playerId', localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString());
+    localStorage.setItem('avatar', localStorage.getItem('avatar') || 'images/avatar-placeholder.png');
+    localStorage.setItem('referrals', localStorage.getItem('referrals') || '0');
+    localStorage.setItem('walletAddress', localStorage.getItem('walletAddress') || 'Not connected');
+
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
+      Telegram.WebApp.CloudStorage.setItems({
+        'totalScore': totalScore.toString(),
+        'matchTokens': matchTokens.toString(),
+        'missionLevel': missionLevel.toString(),
+        'missionGoal': missionGoal.toString(),
+        'missionToken': missionToken,
+        'missionHistory': localStorage.getItem('missionHistory'),
+        'playerName': localStorage.getItem('playerName'),
+        'playerId': localStorage.getItem('playerId'),
+        'avatar': localStorage.getItem('avatar'),
+        'referrals': localStorage.getItem('referrals'),
+        'walletAddress': localStorage.getItem('walletAddress')
+      }, (err) => {
+        if (err) {
+          console.warn('CloudStorage save error:', err);
+        } else {
+          console.log('Game state saved to CloudStorage');
+        }
+      });
+    }
+    console.log('Game state saved:', { totalScore, matchTokens, missionLevel, missionGoal, missionToken });
+  } catch (e) {
+    console.error('Save game state error:', e);
+  }
+}
+
+// Setup canvas and events
+function setup() {
+  try {
+    let canvasWidth = min(windowWidth * 0.85, 400);
+    tileSize = canvasWidth / gridSize;
+    canvas = createCanvas(canvasWidth, canvasWidth);
+    canvas.parent('game');
+    canvas.style('z-index', '1');
+    canvas.style('pointer-events', 'auto');
+    console.log('Canvas setup: width=', canvasWidth, 'tileSize=', tileSize);
+
+    loadGameState();
+
+    canvas.elt.addEventListener('click', (e) => {
+      try {
+        let rect = canvas.elt.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        console.log('Direct click: x=', x, 'y=', y);
+        handleInput(x, y);
+      } catch (e) {
+        console.error('Click event error:', e);
+      }
+    });
+    canvas.elt.addEventListener('touchstart', (e) => {
+      try {
+        e.preventDefault();
+        let rect = canvas.elt.getBoundingClientRect();
+        let x = e.touches[0].clientX - rect.left;
+        let y = e.touches[0].clientY - rect.top;
+        console.log('Direct touch: x=', x, 'y=', y);
+        handleInput(x, y);
+      } catch (e) {
+        console.error('Touch event error:', e);
+      }
+    });
+
+    resetGrid();
+    updateMissionUI();
+    if (window.Telegram && window.Telegram.WebApp) {
+      try {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.enableClosingConfirmation();
+        Telegram.WebApp.MainButton.hide();
+        console.log('Telegram WebApp initialized');
+      } catch (e) {
+        console.error('Telegram WebApp error:', e);
+      }
+    }
+  } catch (e) {
+    console.error('Setup error:', e);
+  }
+}
+
+// Main draw loop
+function draw() {
+  try {
+    background(40, 40, 46);
+
+    for (let i = fallingTiles.length - 1; i >= 0; i--) {
+      let tile = fallingTiles[i];
+      let x = tile.i * tileSize;
+      let y = lerp(tile.startY, tile.targetY, tile.t);
+      drawTile(tile.token, x, y, 255);
+      tile.t += 0.1;
+      if (tile.t >= 1) {
+        grid[tile.i][tile.j] = tile.token;
+        fallingTiles.splice(i, 1);
+        console.log('Tile landed: i=', tile.i, 'j=', tile.j, 'token=', tokens[tile.token]);
+      }
+    }
+
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        if (grid[i][j] === -1 || grid[i][j] == null) continue;
+        let tokenIndex = grid[i][j];
+        if (tokenIndex < 0 || tokenIndex >= tokens.length) {
+          console.error('Invalid token index:', tokenIndex, 'at i=', i, 'j=', j);
+          continue;
+        }
+        let x = i * tileSize;
+        let y = j * tileSize;
+
+        if (swapAnimation && swapAnimation.i1 === i && swapAnimation.j1 === j) {
+          x = lerp(swapAnimation.x1, swapAnimation.x2, swapAnimation.t);
+          y = lerp(swapAnimation.y1, swapAnimation.y2, swapAnimation.t);
+        } else if (swapAnimation && swapAnimation.i2 === i && swapAnimation.j2 === j) {
+          x = lerp(swapAnimation.x2, swapAnimation.x1, swapAnimation.t);
+          y = lerp(swapAnimation.y2, swapAnimation.y1, swapAnimation.t);
+        }
+
+        let fade = fadingTiles.find(f => f.i === i && f.j === j);
+        let alpha = fade ? map(fade.timer, 0, animationDuration, 0, 255) : 255;
+
+        drawTile(tokenIndex, x, y, alpha);
+
+        if (selectedTile && selectedTile.i === i && selectedTile.j === j) {
+          noFill();
+          stroke(255);
+          strokeWeight(6);
+          rect(x + 3, y + 3, tileSize - 6, tileSize - 6);
+          strokeWeight(1);
+        }
+
+        if (matches?.matches?.some(m => m.i === i && m.j === j) && animationState === 'fading') {
+          fill(255, 255, 0, map(fade.timer, 0, animationDuration, 0, 150));
+          ellipse(x + tileSize / 2, y + tileSize / 2, tileSize * 1.2);
+        }
+      }
+    }
+
+    for (let i = clickPoints.length - 1; i >= 0; i--) {
+      let p = clickPoints[i];
+      fill(255, 0, 0, map(p.timer, 0, 30, 0, 255));
+      noStroke();
+      ellipse(p.x, p.y, 20, 20);
+      p.timer--;
+      if (p.timer <= 0) clickPoints.splice(i, 1);
+    }
+
+    if (swapAnimation) {
+      swapAnimation.t += 0.1;
+      if (swapAnimation.t >= 1) {
+        if (swapAnimation.isReverse) {
+          console.log('Reverse swap completed');
+          animationState = 'idle';
+          moves++;
+          selectedTile = null;
+        } else {
+          console.log('Swap completed');
+          matches = findMatches();
+          if (matches.matches.length > 0) {
+            handleMatches();
+          } else {
+            animationState = 'swapping';
+            swapAnimation = {
+              i1: swapAnimation.i1, j1: swapAnimation.j1, i2: swapAnimation.i2, j2: swapAnimation.j2,
+              x1: swapAnimation.i1 * tileSize, y1: swapAnimation.j1 * tileSize,
+              x2: swapAnimation.i2 * tileSize, y2: swapAnimation.j2 * tileSize,
+              t: 0, isReverse: true
+            };
+            let temp = grid[swapAnimation.i1][swapAnimation.j1];
+            grid[swapAnimation.i1][swapAnimation.j1] = grid[swapAnimation.i2][swapAnimation.j2];
+            grid[swapAnimation.i2][swapAnimation.j2] = temp;
+            playSound('error.mp3');
+            console.log('No matches, reversing swap');
+          }
+        }
+        swapAnimation = null;
+      }
+    }
+
+    if (animationState === 'fading') {
+      for (let i = fadingTiles.length - 1; i >= 0; i--) {
+        fadingTiles[i].timer--;
+        if (fadingTiles[i].timer <= 0) fadingTiles.splice(i, 1);
+      }
+      if (fadingTiles.length === 0) {
+        clearMatches();
+        animationState = 'falling';
+        fillGrid();
+      }
+    }
+
+    if (animationState === 'falling' && fallingTiles.length === 0) {
+      matches = findMatches();
+      if (matches.matches.length > 0) {
+        handleMatches();
+      } else {
+        animationState = 'idle';
+      }
+    }
+
+    document.getElementById('score').innerText = score;
+    document.getElementById('moves').innerText = moves;
+    document.getElementById('mission').innerText = missionProgress;
+    document.getElementById('mission-progress').style.width = `${(missionProgress / missionGoal) * 100}%`;
+
+    if (moves <= 0 && gameStarted && animationState === 'idle') {
+      gameStarted = false;
+      totalScore += score;
+      saveGameState();
+      document.getElementById('gameOver').style.display = 'block';
+      document.getElementById('startButton').innerText = 'Play Again';
+      document.getElementById('startButton').style.display = 'inline-block';
+      document.getElementById('pauseButton').style.display = 'none';
+      document.getElementById('claimButton').style.display = 'none';
+      if (window.Telegram && window.Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Game Over!',
+          message: `Score: ${score}\nTotal Score: ${totalScore}\n$MATCH: ${matchTokens}`,
+          buttons: [
+            { type: 'ok', text: 'Play Again', id: 'playAgain' },
+            { type: 'ok', text: 'Home', id: 'home' }
+          ]
+        }, (buttonId) => {
+          if (buttonId === 'playAgain') startGame();
+          else if (buttonId === 'home') window.location.href = 'index.html';
+        });
+      } else {
+        alert(`Game Over!\nScore: ${score}\nTotal Score: ${totalScore}\n$MATCH: ${matchTokens}`);
+      }
+      console.log('Game over: moves=', moves, 'score=', score, 'totalScore=', totalScore);
+    }
+
+    if (missionProgress >= missionGoal && !missionCompleted && gameStarted) {
+      missionCompleted = true;
+      score += 10 + missionLevel;
+      totalScore += 10 + missionLevel;
+      document.getElementById('claimButton').style.display = 'block';
+      document.getElementById('pauseButton').style.display = 'none';
+      playSound('mission-complete.mp3');
+      saveGameState();
+      console.log('Mission completed: missionProgress=', missionProgress, 'bonus=', 10 + missionLevel);
+    }
+  } catch (e) {
+    console.error('Draw error:', e);
+  }
+}
+
+// Draw a single tile
+function drawTile(tokenIndex, x, y, alpha) {
+  try {
+    let token = tokens[tokenIndex];
+    if (!token) {
+      console.error('Invalid token:', tokenIndex);
+      return;
+    }
+    if (tokenImages[token]) {
+      if (alpha < 255) {
+        tint(255, alpha);
+        image(tokenImages[token], x, y, tileSize, tileSize);
+        noTint();
+      } else {
+        image(tokenImages[token], x, y, tileSize, tileSize);
+      }
+    } else {
+      fill(fallbackColors[token], alpha);
+      rect(x, y, tileSize, tileSize);
+      fill(255, alpha);
+      textAlign(CENTER, CENTER);
+      textSize(tileSize / 5);
+      text(token.toUpperCase(), x + tileSize / 2, y + tileSize / 2);
+    }
+  } catch (e) {
+    console.error('Draw tile error:', e);
+  }
+}
+
+// Handle input
+function handleInput(x, y) {
+  try {
+    if (!gameStarted || moves <= 0 || (animationState !== 'idle' && animationState !== 'swapping')) {
+      console.log('Input ignored: gameStarted=', gameStarted, 'moves=', moves, 'animationState=', animationState);
+      return;
+    }
+    let i = floor(x / tileSize);
+    let j = floor(y / tileSize);
+    if (i < 0 || i >= gridSize || j < 0 || j >= gridSize) {
+      console.log('Invalid input: i=', i, 'j=', j);
+      return;
+    }
+    console.log('Tile clicked: i=', i, 'j=', j);
+    clickPoints.push({ x, y, timer: 30 });
+    if (!selectedTile) {
+      selectedTile = { i, j };
+      console.log('Selected tile:', selectedTile);
+    } else if (selectedTile.i === i && selectedTile.j === j) {
+      selectedTile = null;
+      console.log('Deselected tile');
+    } else if (abs(selectedTile.i - i) + abs(selectedTile.j - j) === 1) {
+      animationState = 'swapping';
+      swapAnimation = {
+        i1: selectedTile.i, j1: selectedTile.j, i2: i, j2: j,
+        x1: selectedTile.i * tileSize, y1: selectedTile.j * tileSize,
+        x2: i * tileSize, y2: j * tileSize, t: 0, isReverse: false
+      };
+      let temp = grid[selectedTile.i][selectedTile.j];
+      grid[selectedTile.i][selectedTile.j] = grid[i][j];
+      grid[i][j] = temp;
+      moves--;
+      console.log('Swapped tiles: i1=', selectedTile.i, 'j1=', selectedTile.j, 'i2=', i, 'j2=', j);
+      selectedTile = null;
+    } else {
+      playSound('error.mp3');
+      console.log('Invalid swap attempt: selected=', selectedTile, 'target=', { i, j });
+      selectedTile = { i, j };
+      console.log('Selected new tile:', selectedTile);
+    }
+  } catch (e) {
+    console.error('Handle input error:', e);
+  }
+}
+
+// Find matches
+function findMatches() {
+  try {
+    let matches = new Set();
+    let matchGroups = [];
+    for (let i = 0; i < gridSize; i++) {
+      let count = 1;
+      let startJ = 0;
+      let token = grid[i][0];
+      for (let j = 1; j <= gridSize; j++) {
+        if (j < gridSize && grid[i][j] !== -1 && grid[i][j] != null && grid[i][j] === token) {
+          count++;
+        } else {
+          if (count >= 3) {
+            let group = [];
+            for (let k = startJ; k < j; k++) {
+              let pos = { i, j: k };
+              matches.add(JSON.stringify(pos));
+              group.push(pos);
+            }
+            matchGroups.push({ type: 'horizontal', count, positions: group });
+          }
+          count = 1;
+          startJ = j;
+          token = j < gridSize ? grid[i][j] : null;
+        }
+      }
+    }
+    for (let j = 0; j < gridSize; j++) {
+      let count = 1;
+      let startI = 0;
+      let token = grid[0][j];
+      for (let i = 1; i <= gridSize; i++) {
+        if (i < gridSize && grid[i][j] !== -1 && grid[i][j] != null && grid[i][j] === token) {
+          count++;
+        } else {
+          if (count >= 3) {
+            let group = [];
+            for (let k = startI; k < i; k++) {
+              let pos = { i: k, j };
+              matches.add(JSON.stringify(pos));
+              group.push(pos);
+            }
+            matchGroups.push({ type: 'vertical', count, positions: group });
+          }
+          count = 1;
+          startI = i;
+          token = i < gridSize ? grid[i][j] : null;
+        }
+      }
+    }
+    let result = Array.from(matches).map(m => JSON.parse(m));
+    console.log('Found matches:', result, 'groups=', matchGroups);
+    return { matches: result, groups: matchGroups };
+  } catch (e) {
+    console.error('Find matches error:', e);
+    return { matches: [], groups: [] };
+  }
+}
+
+// Handle matches
+function handleMatches() {
+  try {
+    animationState = 'fading';
+    let { matches: matchPositions, groups } = matches;
+    let matchCount = matchPositions.length;
+    let groupScore = 0;
+    for (let group of groups) {
+      if (group.count === 3) groupScore += 1;
+      else if (group.count === 4) groupScore += 2;
+      else if (group.count >= 5) groupScore += 3;
+    }
+    score += groupScore;
+    totalScore += groupScore;
+    for (let group of groups) {
+      if (tokens[grid[group.positions[0].i][group.positions[0].j]] === missionToken) {
+        if (group.count === 3) missionProgress += 1;
+        else if (group.count === 4) missionProgress += 2;
+        else if (group.count >= 5) missionProgress += 3;
+      }
+    }
+    console.log('Matches processed:', { matchCount, groupScore, score, totalScore, missionProgress, groups });
+    fadingTiles = matchPositions.map(m => ({ i: m.i, j: m.j, timer: animationDuration }));
+    playSound('match.mp3');
+    saveGameState();
+  } catch (e) {
+    console.error('Handle matches error:', e);
+  }
+}
+
+// Clear matches
+function clearMatches() {
+  try {
+    let { matches: matchPositions } = matches;
+    for (let match of matchPositions) {
+      grid[match.i][match.j] = -1;
+    }
+    console.log('Cleared matches:', matchPositions);
+    matches = { matches: [], groups: [] };
+  } catch (e) {
+    console.error('Clear matches error:', e);
+  }
+}
+
+// Fill grid
+function fillGrid() {
+  try {
+    fallingTiles = [];
+    for (let i = 0; i < gridSize; i++) {
+      let newTiles = [];
+      let emptyCount = 0;
+      for (let j = gridSize - 1; j >= 0; j--) {
+        if (grid[i][j] === -1 || grid[i][j] == null) {
+          emptyCount++;
+        } else {
+          newTiles.push(grid[i][j]);
+        }
+      }
+      for (let j = 0; j < gridSize; j++) {
+        if (j < emptyCount) {
+          let newToken = floor(random(tokens.length));
+          let missionTokenIndex = tokens.indexOf(missionToken);
+          if (newToken === missionTokenIndex && random(1) < 0.1 * missionLevel) {
+            newToken = floor(random(0, tokens.length - 1));
+            if (newToken >= missionTokenIndex) newToken++;
+          }
+          fallingTiles.push({
+            i: i, j: j, token: newToken,
+            startY: -tileSize * (emptyCount - j + 1),
+            targetY: j * tileSize, t: 0
+          });
+          grid[i][j] = newToken;
+        } else {
+          let tileIndex = j - emptyCount;
+          if (tileIndex < newTiles.length) {
+            let token = newTiles[newTiles.length - 1 - tileIndex];
+            if (grid[i][j] !== token) {
+              fallingTiles.push({
+                i: i, j: j, token: token,
+                startY: (j - emptyCount) * tileSize,
+                targetY: j * tileSize, t: 0
+              });
+              grid[i][j] = token;
+            }
+          } else {
+            let newToken = floor(random(tokens.length));
+            let missionTokenIndex = tokens.indexOf(missionToken);
+            if (newToken === missionTokenIndex && random(1) < 0.1 * missionLevel) {
+              newToken = floor(random(0, tokens.length - 1));
+              if (newToken >= missionTokenIndex) newToken++;
+            }
+            fallingTiles.push({
+              i: i, j: j, token: newToken,
+              startY: -tileSize, targetY: j * tileSize, t: 0
+            });
+            grid[i][j] = newToken;
+          }
+        }
+      }
+      console.log('Filling row i=', i, 'emptyCount=', emptyCount, 'newTiles=', newTiles.length);
+    }
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        if (grid[i][j] === -1 || grid[i][j] == null) {
+          console.warn('Invalid grid state:', i, j, 'value=', grid[i][j]);
+          grid[i][j] = floor(random(tokens.length));
+        }
+      }
+    }
+    console.log('Grid filled, fallingTiles=', fallingTiles.length);
+  } catch (e) {
+    console.error('Fill grid error:', e);
+    resetGrid();
+  }
+}
+
+// Reset grid
+function resetGrid() {
+  try {
+    totalScore += score;
+    score = 0;
+    let attempts = 0;
+    const maxAttempts = 50;
+    while (attempts < maxAttempts) {
+      grid = [];
+      for (let i = 0; i < gridSize; i++) {
+        grid[i] = [];
+        for (let j = 0; j < gridSize; j++) {
+          let validTokens = [...tokens.keys()];
+          if (j >= 2 && grid[i][j-1] === grid[i][j-2]) {
+            validTokens = validTokens.filter(t => t !== grid[i][j-1]);
+          }
+          if (i >= 2 && grid[i-1][j] === grid[i-2][j]) {
+            validTokens = validTokens.filter(t => t !== grid[i-1][j]);
+          }
+          grid[i][j] = validTokens[floor(random(validTokens.length))];
+        }
+      }
+      if (findMatches().matches.length === 0) break;
+      attempts++;
+      console.log('Reset grid attempt:', attempts);
+    }
+    if (attempts >= maxAttempts) {
+      console.log('Warning: Could not generate grid without matches after', maxAttempts);
+    }
+    moves = 20;
+    missionProgress = 0;
+    missionCompleted = false;
+    matches = { matches: [], groups: [] };
+    selectedTile = null;
+    swapAnimation = null;
+    fadingTiles = [];
+    fallingTiles = [];
+    clickPoints = [];
+    animationState = 'idle';
+    gameStarted = false;
+    document.getElementById('score').innerText = score;
+    document.getElementById('moves').innerText = moves;
+    document.getElementById('mission').innerText = missionProgress;
+    document.getElementById('mission-progress').style.width = '0%';
+    document.getElementById('gameOver').style.display = 'none';
+    document.getElementById('startButton').innerText = 'Start Game';
+    document.getElementById('startButton').style.display = 'inline-block';
+    document.getElementById('pauseButton').style.display = 'none';
+    document.getElementById('claimButton').style.display = 'none';
+    saveGameState();
+    console.log('Grid reset: score=', score, 'totalScore=', totalScore);
+  } catch (e) {
+    console.error('Reset grid error:', e);
+  }
+}
+
+// Update mission UI
+function updateMissionUI() {
+  try {
+    document.getElementById('mission').innerText = missionProgress;
+    document.getElementById('missionGoal').innerText = missionGoal;
+    document.getElementById('missionToken').innerText = missionToken.toUpperCase();
+    document.getElementById('mission-progress').style.width = `${(missionProgress / missionGoal) * 100}%`;
+    console.log('Mission UI updated:', { missionProgress, missionGoal, missionToken });
+  } catch (e) {
+    console.error('Update mission UI error:', e);
+  }
+}
+
+// Start game
+function startGame() {
+  try {
+    if (!localStorage.getItem('missionToken')) {
+      localStorage.setItem('missionToken', 'ton');
+      missionToken = 'ton';
+      localStorage.setItem('playerName', 'Player');
+      localStorage.setItem('playerId', Math.floor(100000 + Math.random() * 900000).toString());
+      localStorage.setItem('avatar', 'images/avatar-placeholder.png');
+      saveGameState();
+    }
+    resetGrid();
+    gameStarted = true;
+    document.getElementById('startButton').innerText = 'Restart Game';
+    document.getElementById('startButton').style.display = 'none';
+    document.getElementById('pauseButton').style.display = 'inline-block';
+    document.getElementById('gameOver').style.display = 'none';
+    playSound('start.mp3');
+    console.log('Game started: gameStarted=', gameStarted);
+  } catch (e) {
+    console.error('Start game error:', e);
+  }
+}
+
+// Pause game
+function pauseGame() {
+  try {
+    if (gameStarted) {
+      gameStarted = false;
+      saveGameState();
+      document.getElementById('pauseButton').innerText = 'Resume';
+      document.getElementById('startButton').style.display = 'inline-block';
+      document.getElementById('startButton').innerText = 'Resume Game';
+      if (window.Telegram && window.Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Game Paused',
+          message: 'What would you like to do?',
+          buttons: [
+            { type: 'ok', text: 'Resume', id: 'resume' },
+            { type: 'ok', text: 'Home', id: 'home' },
+            { type: 'ok', text: 'Profile', id: 'profile' },
+            { type: 'ok', text: 'Leaderboard', id: 'leaderboard' }
+          ]
+        }, (buttonId) => {
+          if (buttonId === 'resume') {
+            gameStarted = true;
+            document.getElementById('pauseButton').innerText = 'Pause';
+            document.getElementById('startButton').style.display = 'none';
+            playSound('start.mp3');
+            console.log('Game resumed');
+          } else if (buttonId === 'home') {
+            window.location.href = 'index.html';
+          } else if (buttonId === 'profile') {
+            window.location.href = 'profile.html';
+          } else if (buttonId === 'leaderboard') {
+            window.location.href = 'leaderboard.html';
+          }
+        });
+      } else {
+        alert('Game Paused. Select an option: Resume, Home, Profile, Leaderboard');
+      }
+      console.log('Game paused');
+    } else {
+      gameStarted = true;
+      document.getElementById('pauseButton').innerText = 'Pause';
+      document.getElementById('startButton').style.display = 'none';
+      playSound('start.mp3');
+      console.log('Game resumed');
+    }
+  } catch (e) {
+    console.error('Pause game error:', e);
+  }
+}
+
+// Claim tokens
+function claimTokens() {
+  try {
+    matchTokens += 100;
+    totalScore += 10 + missionLevel;
+    alert('Claimed 100 $MATCH tokens!');
+    let missionHistory = JSON.parse(localStorage.getItem('missionHistory') || '[]');
+    missionHistory.push({
+      token: missionToken,
+      level: missionLevel,
+      reward: 100
+    });
+    localStorage.setItem('missionHistory', JSON.stringify(missionHistory));
+    missionLevel++;
+    missionProgress = 0;
+    missionCompleted = false;
+    missionGoal = 10 * missionLevel;
+    saveGameState();
+    updateMissionUI();
+    document.getElementById('claimButton').style.display = 'none';
+    document.getElementById('pauseButton').style.display = 'inline-block';
+    playSound('claim.mp3');
+    console.log('Tokens claimed: new missionLevel=', missionLevel, 'missionGoal=', missionGoal);
+  } catch (e) {
+    console.error('Claim tokens error:', e);
+  }
+}
+
+// Play sound
+function playSound(file) {
+  try {
+    console.log('Playing sound:', file);
+  } catch (e) {
+    console.error('Play sound error:', e);
+  }
+}
+
+// Initialize
+window.onload = loadGameState;
+</script>
+</body>
+</html>
