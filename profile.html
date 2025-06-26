@@ -217,16 +217,31 @@ function loadGameState() {
     let referrals = parseInt(localStorage.getItem('referrals') || '0');
     let walletAddress = localStorage.getItem('walletAddress') || 'Not connected';
 
-    // Update UI immediately with localStorage data
+    // Update UI with localStorage data
     updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
 
+    // Initialize Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
+      console.log('Telegram WebApp detected, initializing...');
       Telegram.WebApp.ready();
       Telegram.WebApp.expand();
       let user = Telegram.WebApp.initDataUnsafe.user || {};
-      playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
-      playerId = user.id ? user.id.toString() : playerId;
-      avatar = user.photo_url || avatar;
+      console.log('Telegram user data:', user);
+
+      // Update player data from Telegram
+      if (user && user.id) {
+        playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || 'Player';
+        playerId = user.id.toString();
+        avatar = user.photo_url || avatar;
+        console.log('Updated player data from Telegram:', { playerName, playerId, avatar });
+
+        // Save to localStorage immediately
+        localStorage.setItem('playerName', playerName);
+        localStorage.setItem('playerId', playerId);
+        localStorage.setItem('avatar', avatar);
+      } else {
+        console.warn('No Telegram user data available');
+      }
 
       // Sync with CloudStorage
       Telegram.WebApp.CloudStorage.getItems([
@@ -269,6 +284,8 @@ function loadGameState() {
           updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
         }
       });
+    } else {
+      console.warn('Telegram WebApp not available, using localStorage data');
     }
 
     console.log('Profile initialized:', { playerName, playerId, totalScore, matchTokens, walletAddress });
@@ -340,7 +357,7 @@ async function connectWallet() {
     }
 
     if (window.Telegram && window.Telegram.WebApp) {
-      const connector = new TONConnect.SDK();
+      const connector = new window.TONConnect.SDK();
       const wallet = await connector.connect({
         universalLink: 'https://tonconnect.app',
         bridgeUrl: 'https://bridge.tonapi.io/bridge'
@@ -457,7 +474,14 @@ function updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, 
   console.log('Profile UI updated:', { playerName, playerId, totalScore, matchTokens, walletAddress });
 }
 
-window.onload = loadGameState;
+window.onload = () => {
+  console.log('Profile page loaded, initializing WebApp...');
+  if (window.Telegram && window.Telegram.WebApp) {
+    Telegram.WebApp.onEvent('ready', loadGameState);
+  } else {
+    loadGameState();
+  }
+};
 </script>
 </body>
 </html>
