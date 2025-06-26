@@ -890,7 +890,7 @@ function pauseGame() {
       saveGameState();
       document.getElementById('pauseButton').innerText = 'Resume';
       document.getElementById('startButton').style.display = 'inline-block';
-      document.getElementById('startButton').innerText = 'Resume Game';
+      document.getElementById('startButton').innerText = 'Restart Game';
       if (window.Telegram && window.Telegram.WebApp) {
         Telegram.WebApp.showPopup({
           title: 'Game Paused',
