@@ -58,12 +58,38 @@
       border: 3px solid #ff6f61;
       margin-bottom: 0.5rem;
     }
+    .name-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     h2 {
       font-size: 1rem;
-      margin: 0.5rem 0;
+      margin: 0.5rem 0.5rem 0.5rem 0;
       background: linear-gradient(45deg, #ff6f61, #00C4E0);
       -webkit-background-clip: text;
       color: transparent;
+    }
+    .edit-icon {
+      cursor: pointer;
+      font-size: 1rem;
+      color: #ff6f61;
+      margin-left: 0.5rem;
+    }
+    .edit-icon:hover {
+      color: #ff3b2f;
+    }
+    #edit-name-input {
+      display: none;
+      width: 80%;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      font-family: 'Press Start 2P', cursive;
+      background: #2a2a4e;
+      border: 2px solid #ff6f61;
+      border-radius: 5px;
+      color: #fff;
+      text-align: center;
     }
     .stats-grid {
       display: grid;
@@ -160,7 +186,11 @@
   <div id="ui">
     <div class="profile-card">
       <img id="avatar" src="images/avatar-placeholder.png" alt="Avatar" class="avatar">
-      <h2 id="player-name">Player</h2>
+      <div class="name-container">
+        <h2 id="player-name">Player</h2>
+        <span id="edit-icon" class="edit-icon">✎</span>
+      </div>
+      <input type="text" id="edit-name-input" placeholder="Enter new name">
       <p id="player-id" style="font-size: 0.7rem; color: #aaa;">Player ID: #000000</p>
       <p id="wallet-address" style="font-size: 0.7rem; color: #aaa;">Wallet: Not connected</p>
       <div class="stats-grid">
@@ -208,14 +238,8 @@ function onTonConnectLoad() {
 }
 
 function onTonConnectError() {
-  console.error('Failed to load TONConnect SDK from CDN');
+  console.error('Failed to load TONConnect SDK from local file');
   window.tonConnectLoaded = false;
-  // Attempt to load local fallback (if available)
-  const script = document.createElement('script');
-  script.src = 'lib/tonconnect-sdk.min.js';
-  script.onload = () => console.log('TONConnect SDK loaded from local fallback');
-  script.onerror = () => console.error('Failed to load local TONConnect SDK fallback');
-  document.head.appendChild(script);
 }
 
 function loadGameState() {
@@ -244,22 +268,18 @@ function loadGameState() {
       let user = Telegram.WebApp.initDataUnsafe.user || {};
       console.log('Telegram user data:', user);
 
-      // Update player data from Telegram
+      // Update player data from Telegram if available
       if (user && user.id) {
         playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
         playerId = user.id.toString();
         avatar = user.photo_url || avatar;
         console.log('Updated player data from Telegram:', { playerName, playerId, avatar });
 
-        // Save to localStorage immediately
         localStorage.setItem('playerName', playerName);
         localStorage.setItem('playerId', playerId);
         localStorage.setItem('avatar', avatar);
-
-        // Update UI with Telegram data
-        updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
       } else {
-        console.warn('No Telegram user data available in initDataUnsafe.user');
+        console.warn('No Telegram user data available, using default or custom name');
       }
 
       // Sync with CloudStorage
@@ -490,6 +510,29 @@ function updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, 
   console.log('Profile UI updated:', { playerName, playerId, totalScore, matchTokens, walletAddress });
 }
 
+function toggleEditName() {
+  const name = document.getElementById('player-name');
+  const input = document.getElementById('edit-name-input');
+  const icon = document.getElementById('edit-icon');
+
+  if (input.style.display === 'none') {
+    input.style.display = 'block';
+    input.value = name.innerText;
+    icon.innerText = '✔';
+    input.focus();
+  } else {
+    if (input.value.trim()) {
+      const newName = input.value.trim();
+      localStorage.setItem('playerName', newName);
+      name.innerText = newName;
+      saveGameState();
+      console.log('Name updated to:', newName);
+    }
+    input.style.display = 'none';
+    icon.innerText = '✎';
+  }
+}
+
 window.onload = () => {
   console.log('Profile page loaded, initializing WebApp...');
   if (window.Telegram && window.Telegram.WebApp) {
@@ -497,6 +540,13 @@ window.onload = () => {
   } else {
     loadGameState();
   }
+
+  document.getElementById('edit-icon').addEventListener('click', toggleEditName);
+  document.getElementById('edit-name-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      toggleEditName();
+    }
+  });
 };
 </script>
 </body>
