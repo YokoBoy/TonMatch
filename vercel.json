@@ -1,6 +1,6 @@
 {
   "env": {
-    "SERVER_URL": "@server_url",
-    "API_KEY": "@api_key"
+    "BOT_TOKEN": "bot_token",
+    "MONGODB_URI": "mongodb_uri"
   }
 }
