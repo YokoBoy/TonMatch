@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Missions & Energy Mining</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="icon" href="favicon.ico">
+  <style>
+    /* Стили остаются прежними, добавим только статус подписки */
+    .subscription-status {
+      margin: 1rem 0;
+      color: #00C4E0;
+      font-size: 0.8rem;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="nav-top">
+    <button onclick="showSection('in-game')" class="active">In-Game Tasks<span class="notification"></span></button>
+    <button onclick="showSection('out-game')">Out-Game Tasks<span class="notification"></span></button>
+    <button onclick="showSection('mining')">Energy Mining<span class="notification"></span></button>
+  </div>
+  <div id="in-game-content" class="content active">
+    <h2>In-Game Tasks</h2>
+    <ul class="task-list" id="in-game-tasks"></ul>
+  </div>
+  <div id="out-game-content" class="content">
+    <h2>Out-Game Tasks</h2>
+    <ul class="task-list" id="out-game-tasks"></ul>
+    <div id="subscription-status" class="subscription-status"></div>
+  </div>
+  <div id="mining-content" class="content">
+    <h2>Energy Mining</h2>
+    <div class="mining-visual" id="mining-visual"></div>
+    <div class="energy-counter" id="energy-counter">0.0000 / 2 Energy</div>
+    <div class="mining-stats">
+      <p>Speed: <span id="mining-speed">0.5</span> Energy/hour</p>
+      <p>Capacity: <span id="mining-capacity">2</span> Energy</p>
+      <p>Time: <span id="mining-time">4</span> hours</p>
+      <p>Time Left: <span id="time-left">4:00</span></p>
+      <button id="upgrade-speed" class="upgrade-btn" onclick="upgrade('speed')">Upgrade Speed (10 Match)</button>
+      <button id="upgrade-capacity" class="upgrade-btn" onclick="upgrade('capacity')">Upgrade Capacity (10 Match)</button>
+      <button id="upgrade-time" class="upgrade-btn" onclick="upgrade('time')">Upgrade Time (10 Match)</button>
+      <button id="claim-energy" class="claim-btn" onclick="claimEnergy()" disabled>Claim Energy</button>
+    </div>
+    <div class="transaction-log" id="transaction-log"></div>
+    <div class="notification" id="notification"></div>
+  </div>
+  <div class="navbar">
+    <a href="index.html">🏠 Home</a>
+    <a href="missions.html" class="active">🎮 Missions</a>
+    <a href="profile.html">👤 Profile</a>
+    <a href="leaderboard.html">🏆 Leaderboard</a>
+  </div>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    const user = tg.initDataUnsafe.user || { id: 'test_user', first_name: 'Test' };
+
+    let state = {
+      mining: {
+        speed: { level: 1, baseCost: 10, value: 0.5, cost: 10 },
+        capacity: { level: 1, baseCost: 10, value: 2, cost: 10 },
+        time: { level: 1, baseCost: 10, value: 4, cost: 10 },
+        currentEnergy: 0,
+        timeLeft: 240
+      },
+      matchTokens: 0,
+      energy: 100,
+      tasks: {},
+      subscribed: false
+    };
+
+    const tasks = {
+      'in-game': [
+        { id: 'task1', title: 'Collect 10 TON cubes', reward: 1, type: 'energy', progress: 0, goal: 10, completed: false, claimed: false },
+        { id: 'task2', title: 'Score 50 points', reward: 2, type: 'energy', progress: 0, goal: 50, completed: false, claimed: false }
+      ],
+      'out-game': [
+        { id: 'task3', title: 'Subscribe to our channel', reward: 1, type: 'energy', completed: false, claimed: false, code: 'SUB123' },
+        { id: 'task4', title: 'Join our group', reward: 2, type: 'energy', completed: false, claimed: false, code: 'GROUP456' }
+      ]
+    };
+
+    let miningInterval, uiUpdateInterval;
+
+    async function loadState() {
+      try {
+        const response = await fetch(`https://yourserver.com/getUserState?userId=${user.id}`);
+        const data = await response.json();
+        if (data.success) {
+          state = data.state;
+        }
+      } catch (error) {
+        console.error('Load state error:', error);
+      }
+      checkSubscription();
+      updateUI();
+      startMining();
+      startUIUpdate();
+    }
+
+    async function saveState() {
+      try {
+        await fetch('https://yourserver.com/updateUserState', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId: user.id, state })
+        });
+      } catch (error) {
+        console.error('Save state error:', error);
+      }
+    }
+
+    function updateUI() {
+      ['in-game', 'out-game'].forEach(section => {
+        const taskList = document.getElementById(`${section}-tasks`);
+        taskList.innerHTML = '';
+        const activeTasks = tasks[section].filter(t => !t.claimed);
+        const completedTasks = tasks[section].filter(t => t.claimed);
+        [...activeTasks, ...completedTasks].forEach(task => {
+          const li = document.createElement('li');
+          li.className = `task-item ${task.claimed ? 'completed' : ''}`;
+          li.innerHTML = `
+            <span>${task.title} (${task.progress}/${task.goal || 'N/A'})<div class="progress-bar"><div class="progress" style="width: ${(task.progress / (task.goal || 1)) * 100}%"></div></div></span>
+            <button onclick="completeTask('${section}', '${task.id}')" ${task.completed ? '' : 'disabled'}>
+              ${task.claimed ? 'Completed' : task.completed ? 'Claim' : 'In Progress'}
+            </button>
+          `;
+          taskList.appendChild(li);
+        });
+        document.querySelector(`.nav-top button[onclick="showSection('${section}')"]`).classList.toggle('has-notification', activeTasks.some(t => t.completed && !t.claimed));
+      });
+
+      const { speed, capacity, time, currentEnergy, timeLeft } = state.mining;
+      document.getElementById('mining-speed').innerText = speed.value;
+      document.getElementById('mining-capacity').innerText = capacity.value;
+      document.getElementById('mining-time').innerText = `${time.value} hours`;
+      document.getElementById('energy-counter').innerText = `${currentEnergy.toFixed(4)} / ${capacity.value} Energy`;
+      document.getElementById('time-left').innerText = formatTime(timeLeft);
+      document.getElementById('subscription-status').innerText = state.subscribed ? 'Subscribed to channel!' : 'Please subscribe to our channel @YourChannel to unlock full features.';
+      updateCosts();
+      updateMiningNotification();
+    }
+
+    function formatTime(minutes) {
+      const hrs = Math.floor(minutes / 60);
+      const mins = Math.floor(minutes % 60);
+      return `${hrs}:${mins < 10 ? '0' : ''}${mins}`;
+    }
+
+    function updateCosts() {
+      ['speed', 'capacity', 'time'].forEach(type => {
+        const stat = state.mining[type];
+        stat.cost = Math.round(stat.baseCost * Math.pow(1.5, stat.level - 1));
+        document.getElementById(`upgrade-${type}`).innerText = `Upgrade ${type.charAt(0).toUpperCase() + type.slice(1)} (${stat.cost} Match)`;
+        document.getElementById(`upgrade-${type}`).disabled = state.matchTokens < stat.cost || !state.subscribed;
+      });
+    }
+
+    function upgrade(type) {
+      const stat = state.mining[type];
+      if (state.matchTokens >= stat.cost && state.subscribed) {
+        state.matchTokens -= stat.cost;
+        stat.level++;
+        stat.value += (type === 'speed' ? 0.5 : type === 'capacity' ? 2 : 2);
+        stat.baseCost = Math.round(stat.baseCost * 1.5);
+        addTransaction(`- ${stat.cost} Match (Upgraded ${type})`);
+        saveState();
+        updateUI();
+        showNotification(`Upgraded ${type} to level ${stat.level}!`);
+      } else if (!state.subscribed) {
+        showNotification('Subscribe to our channel to upgrade!');
+      }
+    }
+
+    function completeTask(section, taskId) {
+      const task = tasks[section].find(t => t.id === taskId);
+      if (task && task.completed && !task.claimed) {
+        task.claimed = true;
+        if (task.type === 'energy' && state.subscribed) {
+          state.mining.currentEnergy = Math.min(state.mining.currentEnergy + task.reward, state.mining.capacity.value);
+        }
+        addTransaction(`+ ${task.reward} ${task.type.toUpperCase()} (Claimed ${task.title})`);
+        saveState();
+        updateUI();
+        showNotification(`Claimed ${task.reward} ${task.type}!`);
+      } else if (task && !task.completed) {
+        if (section === 'out-game' && task.id === 'task3') {
+          checkSubscription(true);
+        } else {
+          task.progress = Math.min(task.progress + 1, task.goal);
+          if (task.progress >= task.goal) task.completed = true;
+          addTransaction(`Progress on ${task.title}: ${task.progress}/${task.goal}`);
+          saveState();
+          updateUI();
+        }
+      }
+    }
+
+    function showSection(section) {
+      document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.nav-top button').forEach(b => b.classList.remove('active'));
+      document.getElementById(`${section}-content`).classList.add('active');
+      document.querySelector(`.nav-top button[onclick="showSection('${section}')"]`).classList.add('active');
+
+      if (section === 'mining' && !uiUpdateInterval) {
+        startUIUpdate();
+      } else if (section !== 'mining' && uiUpdateInterval) {
+        clearInterval(uiUpdateInterval);
+        uiUpdateInterval = null;
+      }
+    }
+
+    function updateMining() {
+      if (state.mining.timeLeft > 0 && state.mining.currentEnergy < state.mining.capacity.value) {
+        const energyGain = (state.mining.speed.value / 60);
+        state.mining.currentEnergy = Math.min(state.mining.currentEnergy + energyGain, state.mining.capacity.value);
+        state.mining.timeLeft--;
+        saveState();
+      } else {
+        clearInterval(miningInterval);
+        updateMiningNotification();
+      }
+    }
+
+    function animateEnergyCounter(gain) {
+      const counter = document.getElementById('energy-counter');
+      if (!counter) return;
+      const target = state.mining.currentEnergy;
+      let start = parseFloat(counter.innerText.split('/')[0]);
+      let step = (target - start) / 20;
+      let current = start;
+      function animate() {
+        current += step;
+        counter.innerText = `${current.toFixed(4)} / ${state.mining.capacity.value} Energy`;
+        if (Math.abs(current - target) > Math.abs(step)) requestAnimationFrame(animate);
+        else counter.innerText = `${target.toFixed(4)} / ${state.mining.capacity.value} Energy`;
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function claimEnergy() {
+      if (state.mining.currentEnergy >= 1 && state.subscribed) {
+        const energyToClaim = Math.floor(state.mining.currentEnergy);
+        if (energyToClaim > 0) {
+          state.energy += energyToClaim;
+          state.mining.currentEnergy -= energyToClaim;
+          addTransaction(`+ ${energyToClaim} Energy (Claimed from Mining)`);
+          state.mining.timeLeft = state.mining.time.value * 60;
+          document.getElementById('claim-energy').disabled = true;
+          saveState();
+          updateUI();
+          showNotification(`Claimed ${energyToClaim} Energy!`);
+          startMining();
+        }
+      } else if (!state.subscribed) {
+        showNotification('Subscribe to our channel to claim energy!');
+      }
+    }
+
+    function updateMiningNotification() {
+      const miningBtn = document.querySelector('.nav-top button:nth-child(3)');
+      if (miningBtn) {
+        miningBtn.classList.toggle('has-notification', state.mining.currentEnergy >= state.mining.capacity.value || state.mining.timeLeft <= 0);
+      }
+      document.getElementById('claim-energy').disabled = state.mining.currentEnergy < 1 || !state.subscribed;
+    }
+
+    function startMining() {
+      clearInterval(miningInterval);
+      miningInterval = setInterval(updateMining, 60000);
+    }
+
+    function startUIUpdate() {
+      clearInterval(uiUpdateInterval);
+      uiUpdateInterval = setInterval(() => {
+        if (document.getElementById('mining-content').classList.contains('active')) {
+          updateUI();
+          const energyGain = (state.mining.speed.value / 3600);
+          if (state.mining.timeLeft > 0 && state.mining.currentEnergy < state.mining.capacity.value) {
+            state.mining.currentEnergy = Math.min(state.mining.currentEnergy + energyGain, state.mining.capacity.value);
+            state.mining.timeLeft = Math.max(0, state.mining.timeLeft - (1 / 60));
+            animateEnergyCounter(energyGain);
+            saveState();
+          } else {
+            updateMiningNotification();
+          }
+        }
+      }, 1000);
+    }
+
+    function addTransaction(message) {
+      const log = document.getElementById('transaction-log');
+      const li = document.createElement('div');
+      li.innerText = `${new Date().toLocaleTimeString()} - ${message}`;
+      log.appendChild(li);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function showNotification(message) {
+      const notification = document.getElementById('notification');
+      notification.innerText = message;
+      notification.style.display = 'block';
+      setTimeout(() => notification.style.display = 'none', 3000);
+    }
+
+    function checkSubscription(forceCheck = false) {
+      if (!state.subscribed || forceCheck) {
+        fetch(`https://yourserver.com/checkSubscription?userId=${user.id}`)
+          .then(response => response.json())
+          .then(data => {
+            state.subscribed = data.subscribed;
+            if (state.subscribed) {
+              tasks['out-game'].find(t => t.id === 'task3').completed = true;
+            }
+            saveState();
+            updateUI();
+          })
+          .catch(error => {
+            console.error('Subscription check failed:', error);
+            document.getElementById('subscription-status').innerText = 'Error checking subscription. Try again later.';
+            updateUI();
+          });
+      }
+    }
+
+    let angle = 0;
+    function setup() {
+      let canvas = createCanvas(400, 150);
+      canvas.parent('mining-visual');
+    }
+    function draw() {
+      background(40, 40, 46);
+      push();
+      translate(width / 2, height / 1.5);
+      rotate(angle);
+      fill(150);
+      ellipse(0, 0, 80, 80);
+      for (let i = 0; i < 4; i++) {
+        push();
+        rotate(i * HALF_PI);
+        fill(100);
+        rect(-10, -40, 20, 40);
+        pop();
+      }
+      angle += 0.1 * (state.mining.speed.value / 0.5);
+      pop();
+      fill(0, 100, 255, 100);
+      rect(0, height / 2, width, height / 4);
+      fill(50);
+      rect(width - 80, 20, 60, 80, 10);
+      fill(0, 255, 0, map(state.mining.currentEnergy, 0, state.mining.capacity.value, 0, 255));
+      rect(width - 75, 25, 50, 70 * (state.mining.currentEnergy / state.mining.capacity.value), 10);
+      fill(255);
+      textSize(12);
+      textAlign(CENTER, CENTER);
+      text(`${(state.mining.currentEnergy / state.mining.capacity.value * 100).toFixed(0)}%`, width - 50, 60);
+    }
+
+    loadState();
+    showSection('in-game');
+  </script>
+</body>
+</html>

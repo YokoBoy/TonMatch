@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="favicon.ico">
   <script src="lib/tonconnect-sdk.min.js" defer onload="onTonConnectLoad()" onerror="onTonConnectError()"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     body {
       margin: 0;
@@ -172,6 +173,7 @@
       color: #ff6f61;
       border-bottom: 2px solid #ff6f61;
     }
+    .subscription-status { margin: 1rem 0; color: #00C4E0; font-size: 0.8rem; }
     @media (max-width: 600px) {
       h2 { font-size: 0.9rem; }
       .avatar { width: 80px; height: 80px; }
@@ -227,11 +229,30 @@
   </div>
   <div class="navbar">
     <a href="index.html">🏠 Home</a>
-    <a href="game.html">🎮 Play</a>
+    <a href="missions.html">🎮 Missions</a>
     <a href="profile.html" class="active">👤 Profile</a>
     <a href="leaderboard.html">🏆 Leaderboard</a>
   </div>
+  <div id="subscription-status" class="subscription-status"></div>
 <script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+const user = tg.initDataUnsafe.user || { id: 'test_user', first_name: 'Test' };
+
+// State management
+let state = {
+  playerName: 'Player',
+  playerId: '000000',
+  avatar: 'images/avatar-placeholder.png',
+  totalScore: 0,
+  matchTokens: 0,
+  missionLevel: 1,
+  missionHistory: [],
+  referrals: 0,
+  walletAddress: 'Not connected',
+  subscribed: false
+};
+
 function onTonConnectLoad() {
   console.log('TONConnect SDK loaded successfully');
   window.tonConnectLoaded = true;
@@ -242,137 +263,33 @@ function onTonConnectError() {
   window.tonConnectLoaded = false;
 }
 
-function loadGameState() {
+async function loadState() {
   try {
-    // Load from localStorage first
-    let playerName = localStorage.getItem('playerName') || 'Player';
-    let playerId = localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString();
-    let avatar = localStorage.getItem('avatar') || 'images/avatar-placeholder.png';
-    let totalScore = parseInt(localStorage.getItem('totalScore') || '0');
-    let matchTokens = parseInt(localStorage.getItem('matchTokens') || '0');
-    let missionLevel = parseInt(localStorage.getItem('missionLevel') || '1');
-    let missionGoal = parseInt(localStorage.getItem('missionGoal') || '10');
-    let missionToken = localStorage.getItem('missionToken') || 'ton';
-    let missionHistory = JSON.parse(localStorage.getItem('missionHistory') || '[]');
-    let referrals = parseInt(localStorage.getItem('referrals') || '0');
-    let walletAddress = localStorage.getItem('walletAddress') || 'Not connected';
-
-    // Update UI with localStorage data
-    updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
-
-    // Initialize Telegram WebApp
-    if (window.Telegram && window.Telegram.WebApp) {
-      console.log('Telegram WebApp detected, initializing...');
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
-      let user = Telegram.WebApp.initDataUnsafe.user || {};
-      console.log('Telegram user data:', user);
-
-      // Update player data from Telegram if available
-      if (user && user.id) {
-        playerName = user.username || (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '') || playerName;
-        playerId = user.id.toString();
-        avatar = user.photo_url || avatar;
-        console.log('Updated player data from Telegram:', { playerName, playerId, avatar });
-
-        localStorage.setItem('playerName', playerName);
-        localStorage.setItem('playerId', playerId);
-        localStorage.setItem('avatar', avatar);
-      } else {
-        console.warn('No Telegram user data available, using default or custom name');
-      }
-
-      // Sync with CloudStorage
-      Telegram.WebApp.CloudStorage.getItems([
-        'playerName', 'playerId', 'avatar', 'totalScore', 'matchTokens', 'missionLevel',
-        'missionGoal', 'missionToken', 'missionHistory', 'referrals', 'walletAddress'
-      ], (err, values) => {
-        if (!err && values) {
-          playerName = values.playerName || playerName;
-          playerId = values.playerId || playerId;
-          avatar = values.avatar || avatar;
-          totalScore = parseInt(values.totalScore) || totalScore;
-          matchTokens = parseInt(values.matchTokens) || matchTokens;
-          missionLevel = parseInt(values.missionLevel) || missionLevel;
-          missionGoal = parseInt(values.missionGoal) || missionGoal;
-          missionToken = values.missionToken || missionToken;
-          missionHistory = JSON.parse(values.missionHistory || '[]');
-          referrals = parseInt(values.referrals) || referrals;
-          walletAddress = values.walletAddress || walletAddress;
-
-          localStorage.setItem('playerName', playerName);
-          localStorage.setItem('playerId', playerId);
-          localStorage.setItem('avatar', avatar);
-          localStorage.setItem('totalScore', totalScore.toString());
-          localStorage.setItem('matchTokens', matchTokens.toString());
-          localStorage.setItem('missionLevel', missionLevel.toString());
-          localStorage.setItem('missionGoal', missionGoal.toString());
-          localStorage.setItem('missionToken', missionToken);
-          localStorage.setItem('missionHistory', JSON.stringify(missionHistory));
-          localStorage.setItem('referrals', referrals.toString());
-          localStorage.setItem('walletAddress', walletAddress);
-
-          updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
-          saveGameState();
-          console.log('Profile synced with CloudStorage:', { playerName, playerId, totalScore, matchTokens, walletAddress });
-        } else if (err) {
-          console.warn('CloudStorage load error:', err);
-          updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress);
-        }
-      });
-    } else {
-      console.warn('Telegram WebApp not available, using localStorage data');
+    const response = await fetch(`https://yourserver.com/getUserState?userId=${user.id}`);
+    const data = await response.json();
+    if (data.success) {
+      state = data.state;
+      state.playerName = state.playerName || user.username || (user.first_name || 'Player') + (user.last_name ? ' ' + user.last_name : '');
+      state.playerId = user.id ? user.id.toString() : '000000';
+      state.avatar = user.photo_url || 'images/avatar-placeholder.png';
+      state.missionHistory = state.missionHistory || [];
+      checkSubscription();
+      updateProfileUI();
     }
-
-    console.log('Profile initialized:', { playerName, playerId, totalScore, matchTokens, walletAddress });
-  } catch (e) {
-    console.error('Profile init error:', e);
+  } catch (error) {
+    console.error('Load state error:', error);
   }
 }
 
-function saveGameState() {
+async function saveState() {
   try {
-    localStorage.setItem('playerName', localStorage.getItem('playerName') || 'Player');
-    localStorage.setItem('playerId', localStorage.getItem('playerId') || Math.floor(100000 + Math.random() * 900000).toString());
-    localStorage.setItem('avatar', localStorage.getItem('avatar') || 'images/avatar-placeholder.png');
-    localStorage.setItem('totalScore', localStorage.getItem('totalScore') || '0');
-    localStorage.setItem('matchTokens', localStorage.getItem('matchTokens') || '0');
-    localStorage.setItem('missionLevel', localStorage.getItem('missionLevel') || '1');
-    localStorage.setItem('missionGoal', localStorage.getItem('missionGoal') || '10');
-    localStorage.setItem('missionToken', localStorage.getItem('missionToken') || 'ton');
-    localStorage.setItem('missionHistory', localStorage.getItem('missionHistory') || '[]');
-    localStorage.setItem('referrals', localStorage.getItem('referrals') || '0');
-    localStorage.setItem('walletAddress', localStorage.getItem('walletAddress') || 'Not connected');
-
-    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
-      Telegram.WebApp.CloudStorage.setItems({
-        'playerName': localStorage.getItem('playerName'),
-        'playerId': localStorage.getItem('playerId'),
-        'avatar': localStorage.getItem('avatar'),
-        'totalScore': localStorage.getItem('totalScore'),
-        'matchTokens': localStorage.getItem('matchTokens'),
-        'missionLevel': localStorage.getItem('missionLevel'),
-        'missionGoal': localStorage.getItem('missionGoal'),
-        'missionToken': localStorage.getItem('missionToken'),
-        'missionHistory': localStorage.getItem('missionHistory'),
-        'referrals': localStorage.getItem('referrals'),
-        'walletAddress': localStorage.getItem('walletAddress')
-      }, (err) => {
-        if (err) {
-          console.warn('CloudStorage save error:', err);
-        } else {
-          console.log('Game state saved to CloudStorage');
-        }
-      });
-    }
-    console.log('Game state saved:', {
-      playerName: localStorage.getItem('playerName'),
-      totalScore: localStorage.getItem('totalScore'),
-      matchTokens: localStorage.getItem('matchTokens'),
-      walletAddress: localStorage.getItem('walletAddress')
+    await fetch('https://yourserver.com/updateUserState', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telegramId: user.id, state })
     });
-  } catch (e) {
-    console.error('Save game state error:', e);
+  } catch (error) {
+    console.error('Save state error:', error);
   }
 }
 
@@ -380,69 +297,41 @@ async function connectWallet() {
   try {
     if (!window.TONConnect || !window.tonConnectLoaded) {
       console.warn('TONConnect SDK not loaded');
-      if (window.Telegram && window.Telegram.WebApp) {
-        Telegram.WebApp.showPopup({
-          title: 'Error',
-          message: 'TONConnect SDK failed to load. Please try again later or check your network.',
-          buttons: [{ type: 'ok', text: 'OK' }]
-        });
-      } else {
-        alert('TONConnect SDK failed to load. Please try again later or check your network.');
-      }
+      tg.showPopup({
+        title: 'Error',
+        message: 'TONConnect SDK failed to load. Please try again later or check your network.',
+        buttons: [{ type: 'ok', text: 'OK' }]
+      });
       return;
     }
-
-    if (window.Telegram && window.Telegram.WebApp) {
-      const connector = new window.TONConnect.SDK();
-      const wallet = await connector.connect({
-        universalLink: 'https://tonconnect.app',
-        bridgeUrl: 'https://bridge.tonapi.io/bridge'
-      });
-      if (wallet) {
-        const address = wallet.account.address;
-        localStorage.setItem('walletAddress', address);
-        saveGameState();
-        updateProfileUI(
-          localStorage.getItem('playerName'),
-          localStorage.getItem('playerId'),
-          localStorage.getItem('avatar'),
-          parseInt(localStorage.getItem('totalScore') || '0'),
-          parseInt(localStorage.getItem('matchTokens') || '0'),
-          parseInt(localStorage.getItem('missionLevel') || '1'),
-          JSON.parse(localStorage.getItem('missionHistory') || '[]'),
-          parseInt(localStorage.getItem('referrals') || '0'),
-          address
-        );
-        console.log('Wallet connected:', address);
-      }
-    } else {
-      alert('Please open this game in Telegram to connect a wallet.');
+    const connector = new window.TONConnect.SDK();
+    const wallet = await connector.connect({
+      universalLink: 'https://tonconnect.app',
+      bridgeUrl: 'https://bridge.tonapi.io/bridge'
+    });
+    if (wallet) {
+      state.walletAddress = wallet.account.address;
+      saveState();
+      updateProfileUI();
+      console.log('Wallet connected:', state.walletAddress);
     }
   } catch (e) {
     console.error('Wallet connect error:', e);
-    if (window.Telegram && window.Telegram.WebApp) {
-      Telegram.WebApp.showPopup({
-        title: 'Error',
-        message: 'Failed to connect wallet. Try again or check TONConnect configuration.',
-        buttons: [{ type: 'ok', text: 'OK' }]
-      });
-    } else {
-      alert('Failed to connect wallet. Try again or check TONConnect configuration.');
-    }
+    tg.showPopup({
+      title: 'Error',
+      message: 'Failed to connect wallet. Try again or check TONConnect configuration.',
+      buttons: [{ type: 'ok', text: 'OK' }]
+    });
   }
 }
 
 function withdrawTokens() {
   try {
-    if (window.Telegram && window.Telegram.WebApp) {
-      Telegram.WebApp.showPopup({
-        title: 'Withdraw $MATCH',
-        message: 'Withdrawal feature awaiting $MATCH token listing!',
-        buttons: [{ type: 'ok', text: 'OK' }]
-      });
-    } else {
-      alert('Withdrawal feature awaiting $MATCH token listing!');
-    }
+    tg.showPopup({
+      title: 'Withdraw $MATCH',
+      message: 'Withdrawal feature awaiting $MATCH token listing!',
+      buttons: [{ type: 'ok', text: 'OK' }]
+    });
     console.log('Withdraw attempted');
   } catch (e) {
     console.error('Withdraw error:', e);
@@ -451,63 +340,46 @@ function withdrawTokens() {
 
 function shareReferral() {
   try {
-    let referralLink = `https://t.me/CryptoMatchBot?start=${btoa(localStorage.getItem('playerId') || '000000')}`;
-    if (window.Telegram && window.Telegram.WebApp) {
-      Telegram.WebApp.showPopup({
-        title: 'Invite Friends',
-        message: 'Share your referral link to earn $MATCH!',
-        buttons: [{ type: 'ok', text: 'Share', id: 'share' }]
-      }, (buttonId) => {
-        if (buttonId === 'share') {
-          Telegram.WebApp.shareUrl(referralLink, 'Join CryptoMatch and earn $MATCH tokens!');
-          let referrals = parseInt(localStorage.getItem('referrals') || '0') + 1;
-          localStorage.setItem('referrals', referrals.toString());
-          saveGameState();
-          updateProfileUI(
-            localStorage.getItem('playerName'),
-            localStorage.getItem('playerId'),
-            localStorage.getItem('avatar'),
-            parseInt(localStorage.getItem('totalScore') || '0'),
-            parseInt(localStorage.getItem('matchTokens') || '0'),
-            parseInt(localStorage.getItem('missionLevel') || '1'),
-            JSON.parse(localStorage.getItem('missionHistory') || '[]'),
-            referrals,
-            localStorage.getItem('walletAddress')
-          );
-          console.log('Referral shared, referrals:', referrals);
-        }
-      });
-    } else {
-      alert(`Share this link: ${referralLink}`);
-    }
-    console.log('Referral link shared:', referralLink);
+    let referralLink = `https://t.me/CryptoMatchBot?start=${btoa(state.playerId)}`;
+    tg.showPopup({
+      title: 'Invite Friends',
+      message: 'Share your referral link to earn $MATCH!',
+      buttons: [{ type: 'ok', text: 'Share', id: 'share' }]
+    }, (buttonId) => {
+      if (buttonId === 'share') {
+        tg.shareUrl(referralLink, 'Join CryptoMatch and earn $MATCH tokens!');
+        state.referrals = (state.referrals || 0) + 1;
+        saveState();
+        updateProfileUI();
+        console.log('Referral shared, referrals:', state.referrals);
+      }
+    });
   } catch (e) {
     console.error('Share referral error:', e);
   }
 }
 
-function updateProfileUI(playerName, playerId, avatar, totalScore, matchTokens, missionLevel, missionHistory, referrals, walletAddress) {
-  document.getElementById('player-name').innerText = playerName || 'Player';
-  document.getElementById('player-id').innerText = `Player ID: #${playerId || '000000'}`;
-  document.getElementById('avatar').src = avatar || 'images/avatar-placeholder.png';
-  document.getElementById('total-score').innerText = totalScore || 0;
-  document.getElementById('match-tokens').innerText = matchTokens || 0;
-  document.getElementById('mission-level').innerText = missionLevel || 1;
-  document.getElementById('referrals').innerText = referrals || 0;
-  document.getElementById('wallet-address').innerText = walletAddress === 'Not connected' || !walletAddress ? 
+function updateProfileUI() {
+  document.getElementById('player-name').innerText = state.playerName;
+  document.getElementById('player-id').innerText = `Player ID: #${state.playerId}`;
+  document.getElementById('avatar').src = state.avatar;
+  document.getElementById('total-score').innerText = state.totalScore || 0;
+  document.getElementById('match-tokens').innerText = state.matchTokens || 0;
+  document.getElementById('mission-level').innerText = state.missionLevel || 1;
+  document.getElementById('referrals').innerText = state.referrals || 0;
+  document.getElementById('wallet-address').innerText = state.walletAddress === 'Not connected' || !state.walletAddress ? 
     'Wallet: Not connected' : 
-    `Wallet: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
-  document.getElementById('mission-list').innerHTML = (missionHistory || []).slice(-5).map(m => `
+    `Wallet: ${state.walletAddress.slice(0, 4)}...${state.walletAddress.slice(-4)}`;
+  document.getElementById('mission-list').innerHTML = (state.missionHistory || []).slice(-5).map(m => `
     <div class="mission-item">
       <span>${(m.token || 'ton').toUpperCase()} Mission Lv${m.level || 1}</span>
       <span>+${m.reward || 0} $MATCH</span>
     </div>
   `).join('');
-  if (walletAddress && walletAddress !== 'Not connected') {
-    document.getElementById('connect-wallet').innerText = 'Wallet Connected';
-    document.getElementById('connect-wallet').classList.remove('pulse');
-  }
-  console.log('Profile UI updated:', { playerName, playerId, totalScore, matchTokens, walletAddress });
+  document.getElementById('connect-wallet').innerText = state.walletAddress && state.walletAddress !== 'Not connected' ? 'Wallet Connected' : '💎 Connect Wallet';
+  document.getElementById('connect-wallet').classList.toggle('pulse', !state.walletAddress || state.walletAddress === 'Not connected');
+  document.getElementById('subscription-status').innerText = state.subscribed ? 'Subscribed to channel!' : 'Subscribe to @YourChannel to unlock features!';
+  console.log('Profile UI updated:', { playerName: state.playerName, playerId: state.playerId, totalScore: state.totalScore, matchTokens: state.matchTokens, walletAddress: state.walletAddress });
 }
 
 function toggleEditName() {
@@ -522,23 +394,35 @@ function toggleEditName() {
     input.focus();
   } else {
     if (input.value.trim()) {
-      const newName = input.value.trim();
-      localStorage.setItem('playerName', newName);
-      name.innerText = newName;
-      saveGameState();
-      console.log('Name updated to:', newName);
+      state.playerName = input.value.trim();
+      name.innerText = state.playerName;
+      saveState();
     }
     input.style.display = 'none';
     icon.innerText = '✎';
   }
 }
 
+function checkSubscription() {
+  fetch(`https://yourserver.com/checkSubscription?userId=${user.id}`)
+    .then(response => response.json())
+    .then(data => {
+      state.subscribed = data.subscribed;
+      updateProfileUI();
+    })
+    .catch(error => {
+      console.error('Subscription check failed:', error);
+      document.getElementById('subscription-status').innerText = 'Error checking subscription. Try again later.';
+      updateProfileUI();
+    });
+}
+
 window.onload = () => {
   console.log('Profile page loaded, initializing WebApp...');
   if (window.Telegram && window.Telegram.WebApp) {
-    Telegram.WebApp.onEvent('ready', loadGameState);
+    Telegram.WebApp.onEvent('ready', loadState);
   } else {
-    loadGameState();
+    loadState();
   }
 
   document.getElementById('edit-icon').addEventListener('click', toggleEditName);
@@ -549,5 +433,3 @@ window.onload = () => {
   });
 };
 </script>
-</body>
-</html>
