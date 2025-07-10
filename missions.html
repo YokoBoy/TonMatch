@@ -7,50 +7,63 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="icon" href="favicon.ico">
   <style>
-    .subscription-status {
-      margin: 1rem 0;
-      color: #00C4E0;
-      font-size: 0.8rem;
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a1a2e, #2a2a4e);
+      color: #fff;
+      font-family: 'Press Start 2P', cursive;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .nav-top {
       display: flex;
       justify-content: space-around;
-      background: #2a2a4e;
+      background: rgba(42, 42, 78, 0.9);
       padding: 0.5rem;
-      position: fixed;
+      position: sticky;
       top: 0;
-      width: 100%;
       z-index: 1000;
+      border-bottom: 2px solid #fff;
     }
     .nav-top button {
       background: none;
       border: none;
-      color: #fff;
-      font-family: 'Press Start 2P', cursive;
-      font-size: 0.8rem;
+      color: #ddd;
+      font-size: clamp(0.7rem, 3vw, 1rem);
       cursor: pointer;
+      padding: 0.3rem 0.5rem;
+      transition: color 0.3s, transform 0.2s;
     }
     .nav-top button.active {
       color: #ff6f61;
-      border-bottom: 2px solid #ff6f61;
+      transform: scale(1.1);
     }
     .nav-top .notification {
       display: inline-block;
       width: 8px;
       height: 8px;
-      background: red;
+      background: #ff4444;
       border-radius: 50%;
       margin-left: 5px;
       visibility: hidden;
+      animation: pulse 1.5s infinite;
     }
     .nav-top button.has-notification .notification {
       visibility: visible;
     }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
     .content {
       display: none;
-      margin-top: 40px; /* Смещение из-за фиксированного nav-top */
       padding: 1rem;
-      text-align: center;
+      flex-grow: 1;
+      margin-top: 3rem; /* Отступ от nav-top */
     }
     .content.active {
       display: block;
@@ -64,33 +77,47 @@
       justify-content: space-between;
       align-items: center;
       padding: 0.5rem;
-      background: #2a2a4e;
+      background: rgba(42, 42, 78, 0.8);
       margin-bottom: 0.5rem;
-      border-radius: 5px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .task-item.completed {
-      opacity: 0.6;
+      opacity: 0.7;
+      background: rgba(58, 58, 110, 0.8);
     }
     .progress-bar {
-      width: 100px;
-      height: 10px;
+      width: 80px;
+      height: 8px;
       background: #3a3a6e;
-      border-radius: 5px;
+      border-radius: 4px;
       overflow: hidden;
+      margin-left: 1rem;
     }
     .progress {
       height: 100%;
-      background: #ff6f61;
-      border-radius: 5px;
+      background: linear-gradient(90deg, #ff6f61, #ff8e53);
+      border-radius: 4px;
+      transition: width 0.5s ease;
     }
     button {
-      padding: 0.5rem 1rem;
-      font-family: 'Press Start 2P', cursive;
-      background: #ff6f61;
+      padding: 0.4rem 0.8rem;
+      font-size: clamp(0.6rem, 2vw, 0.8rem);
+      background: linear-gradient(45deg, #ff6f61, #ff3b2f);
       border: none;
       color: #fff;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
+      transition: transform 0.2s, background 0.3s;
+    }
+    button:hover:not(:disabled) {
+      transform: scale(1.05);
+      background: linear-gradient(45deg, #ff8e53, #ff6f61);
     }
     button:disabled {
       background: #666;
@@ -98,41 +125,62 @@
     }
     .mining-visual {
       margin: 1rem 0;
+      position: relative;
     }
     .energy-counter {
-      font-size: 1.2rem;
+      font-size: clamp(1rem, 4vw, 1.2rem);
       margin: 1rem 0;
+      color: #00C4E0;
+      text-shadow: 0 0 5px #00C4E0;
+      animation: glow 2s infinite;
+    }
+    @keyframes glow {
+      50% { text-shadow: 0 0 10px #00C4E0, 0 0 20px #00C4E0; }
     }
     .mining-stats {
-      background: #2a2a4e;
+      background: rgba(42, 42, 78, 0.9);
       padding: 1rem;
       border-radius: 10px;
       margin: 1rem 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
     .upgrade-btn, .claim-btn {
-      margin: 0.5rem 0;
+      margin: 0.3rem 0;
+      width: 100%;
+      max-width: 200px;
     }
     .transaction-log {
-      max-height: 100px;
+      max-height: 120px;
       overflow-y: auto;
-      background: #1a1a2e;
+      background: rgba(26, 26, 46, 0.9);
       padding: 0.5rem;
-      border-radius: 5px;
+      border-radius: 6px;
       margin-top: 1rem;
+      font-size: 0.7rem;
     }
     .transaction-log div {
-      font-size: 0.7rem;
-      color: #aaa;
+      color: #bbb;
+      margin: 0.2rem 0;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
     }
     .notification {
       display: none;
       background: #ff6f61;
       padding: 0.5rem;
-      border-radius: 5px;
+      border-radius: 6px;
       margin-top: 1rem;
+      animation: popIn 0.5s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
     }
     .navbar {
-      position: fixed;
+      position: sticky;
       bottom: 0;
       width: 100%;
       background: rgba(26, 26, 46, 0.9);
@@ -143,16 +191,25 @@
       z-index: 1000;
     }
     .navbar a {
-      color: #fff;
+      color: #ddd;
       text-decoration: none;
-      font-size: 0.7rem;
+      font-size: clamp(0.6rem, 2.5vw, 0.8rem);
       text-align: center;
       flex: 1;
-      padding: 0.5rem;
+      padding: 0.3rem;
+      transition: color 0.3s;
     }
     .navbar a:hover, .navbar a.active {
       color: #ff6f61;
-      border-bottom: 2px solid #ff6f61;
+    }
+    @media (max-width: 480px) {
+      .nav-top button { font-size: 0.6rem; padding: 0.2rem; }
+      .content { padding: 0.5rem; }
+      .task-item { flex-direction: column; text-align: center; }
+      .progress-bar { margin: 0.5rem 0; }
+      .mining-stats p { font-size: 0.7rem; }
+      .mining-visual { width: 90%; margin: 0 auto; }
+      .navbar a { font-size: 0.5rem; padding: 0.2rem; }
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -181,9 +238,9 @@
       <p>Capacity: <span id="mining-capacity">2</span> Energy</p>
       <p>Time: <span id="mining-time">4</span> hours</p>
       <p>Time Left: <span id="time-left">4:00</span></p>
-      <button id="upgrade-speed" class="upgrade-btn" onclick="upgrade('speed')">Upgrade Speed (10 Match)</button>
-      <button id="upgrade-capacity" class="upgrade-btn" onclick="upgrade('capacity')">Upgrade Capacity (10 Match)</button>
-      <button id="upgrade-time" class="upgrade-btn" onclick="upgrade('time')">Upgrade Time (10 Match)</button>
+      <button id="upgrade-speed" class="upgrade-btn" onclick="upgrade('speed')">Upgrade Speed</button>
+      <button id="upgrade-capacity" class="upgrade-btn" onclick="upgrade('capacity')">Upgrade Capacity</button>
+      <button id="upgrade-time" class="upgrade-btn" onclick="upgrade('time')">Upgrade Time</button>
       <button id="claim-energy" class="claim-btn" onclick="claimEnergy()" disabled>Claim Energy</button>
     </div>
     <div class="transaction-log" id="transaction-log"></div>
@@ -208,7 +265,7 @@
         currentEnergy: 0,
         timeLeft: 240
       },
-      matchTokens: 0,
+      matchTokens: 50,
       energy: 100,
       tasks: {},
       subscribed: false
@@ -232,12 +289,11 @@
         const response = await fetch(`/api/getUserState?userId=${user.id}`);
         const data = await response.json();
         if (data.success) {
-          state = { ...state, ...data.state }; // Обновляем state, сохраняя дефолтные значения
+          state = { ...state, ...data.state };
         }
       } catch (error) {
         console.error('Load state error:', error);
-        // Эмуляция данных, если сервер недоступен
-        state.matchTokens = 50; // Пример начальных данных
+        state.matchTokens = 50; // Эмуляция начальных данных
         state.energy = 100;
       }
       checkSubscription();
@@ -279,12 +335,12 @@
       });
 
       const { speed, capacity, time, currentEnergy, timeLeft } = state.mining;
-      document.getElementById('mining-speed').innerText = speed.value;
+      document.getElementById('mining-speed').innerText = speed.value.toFixed(2);
       document.getElementById('mining-capacity').innerText = capacity.value;
-      document.getElementById('mining-time').innerText = `${time.value} hours`;
+      document.getElementById('mining-time').innerText = `${time.value} hrs`;
       document.getElementById('energy-counter').innerText = `${currentEnergy.toFixed(4)} / ${capacity.value} Energy`;
       document.getElementById('time-left').innerText = formatTime(timeLeft);
-      document.getElementById('subscription-status').innerText = state.subscribed ? 'Subscribed to channel!' : 'Please subscribe to our channel @YourChannel to unlock full features.';
+      document.getElementById('subscription-status').innerText = state.subscribed ? 'Subscribed to @YourChannel!' : 'Subscribe to @YourChannel to unlock features.';
       updateCosts();
       updateMiningNotification();
     }
@@ -302,6 +358,7 @@
         document.getElementById(`upgrade-${type}`).innerText = `Upgrade ${type.charAt(0).toUpperCase() + type.slice(1)} (${stat.cost} Match)`;
         document.getElementById(`upgrade-${type}`).disabled = state.matchTokens < stat.cost || !state.subscribed;
       });
+      document.getElementById('claim-energy').disabled = state.mining.currentEnergy < 1 || !state.subscribed;
     }
 
     function upgrade(type) {
@@ -311,12 +368,12 @@
         stat.level++;
         stat.value += (type === 'speed' ? 0.5 : type === 'capacity' ? 2 : 2);
         stat.baseCost = Math.round(stat.baseCost * 1.5);
-        addTransaction(`- ${stat.cost} Match (Upgraded ${type})`);
+        addTransaction(`- ${stat.cost} Match (Upgraded ${type} to Lvl ${stat.level})`);
         saveState();
         updateUI();
-        showNotification(`Upgraded ${type} to level ${stat.level}!`);
+        showNotification(`Upgraded ${type} to Level ${stat.level}!`);
       } else if (!state.subscribed) {
-        showNotification('Subscribe to our channel to upgrade!');
+        showNotification('Subscribe to @YourChannel to upgrade!');
       }
     }
 
@@ -361,8 +418,9 @@
     function updateMining() {
       if (state.mining.timeLeft > 0 && state.mining.currentEnergy < state.mining.capacity.value) {
         const energyGain = (state.mining.speed.value / 60);
-        state.mining.currentEnergy = Math.min(state.mining.currentEnergy + energyGain, state.mining.capacity.value);
-        state.mining.timeLeft--;
+        state.mining.currentEnergy += energyGain;
+        state.mining.timeLeft = Math.max(0, state.mining.timeLeft - 1);
+        if (state.mining.currentEnergy > state.mining.capacity.value) state.mining.currentEnergy = state.mining.capacity.value;
         saveState();
       } else {
         clearInterval(miningInterval);
@@ -375,14 +433,23 @@
       if (!counter) return;
       const target = state.mining.currentEnergy;
       let start = parseFloat(counter.innerText.split('/')[0]);
-      let step = (target - start) / 20;
-      let current = start;
-      function animate() {
-        current += step;
+      const duration = 1000; // 1 секунда
+      let startTime = null;
+
+      function animate(currentTime) {
+        if (!startTime) startTime = currentTime;
+        const progress = Math.min((currentTime - startTime) / duration, 1);
+        const easedProgress = easeInOutQuad(progress);
+        const current = start + (target - start) * easedProgress;
         counter.innerText = `${current.toFixed(4)} / ${state.mining.capacity.value} Energy`;
-        if (Math.abs(current - target) > Math.abs(step)) requestAnimationFrame(animate);
+        if (progress < 1) requestAnimationFrame(animate);
         else counter.innerText = `${target.toFixed(4)} / ${state.mining.capacity.value} Energy`;
       }
+
+      function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      }
+
       requestAnimationFrame(animate);
     }
 
@@ -392,7 +459,7 @@
         if (energyToClaim > 0) {
           state.energy += energyToClaim;
           state.mining.currentEnergy -= energyToClaim;
-          addTransaction(`+ ${energyToClaim} Energy (Claimed from Mining)`);
+          addTransaction(`+ ${energyToClaim} Energy (Claimed)`);
           state.mining.timeLeft = state.mining.time.value * 60;
           document.getElementById('claim-energy').disabled = true;
           saveState();
@@ -401,7 +468,7 @@
           startMining();
         }
       } else if (!state.subscribed) {
-        showNotification('Subscribe to our channel to claim energy!');
+        showNotification('Subscribe to @YourChannel to claim!');
       }
     }
 
@@ -415,7 +482,7 @@
 
     function startMining() {
       clearInterval(miningInterval);
-      miningInterval = setInterval(updateMining, 60000);
+      miningInterval = setInterval(updateMining, 1000); // Обновление каждую секунду для точности
     }
 
     function startUIUpdate() {
@@ -425,8 +492,8 @@
           updateUI();
           const energyGain = (state.mining.speed.value / 3600);
           if (state.mining.timeLeft > 0 && state.mining.currentEnergy < state.mining.capacity.value) {
-            state.mining.currentEnergy = Math.min(state.mining.currentEnergy + energyGain, state.mining.capacity.value);
-            state.mining.timeLeft = Math.max(0, state.mining.timeLeft - (1 / 60));
+            state.mining.currentEnergy += energyGain;
+            state.mining.timeLeft = Math.max(0, state.mining.timeLeft - (1 / 3600));
             animateEnergyCounter(energyGain);
             saveState();
           } else {
@@ -438,9 +505,9 @@
 
     function addTransaction(message) {
       const log = document.getElementById('transaction-log');
-      const li = document.createElement('div');
-      li.innerText = `${new Date().toLocaleTimeString()} - ${message}`;
-      log.appendChild(li);
+      const div = document.createElement('div');
+      div.innerText = `${new Date().toLocaleTimeString()} - ${message}`;
+      log.appendChild(div);
       log.scrollTop = log.scrollHeight;
     }
 
@@ -456,7 +523,7 @@
         fetch(`/api/checkSubscription?userId=${user.id}`)
           .then(response => response.json())
           .then(data => {
-            state.subscribed = data.subscribed || false; // Эмуляция, если сервер не настроен
+            state.subscribed = data.subscribed || false;
             if (state.subscribed) {
               tasks['out-game'].find(t => t.id === 'task3').completed = true;
             }
@@ -465,8 +532,8 @@
           })
           .catch(error => {
             console.error('Subscription check failed:', error);
-            state.subscribed = false; // Эмуляция для тестирования
-            document.getElementById('subscription-status').innerText = 'Error checking subscription. Try again later.';
+            state.subscribed = false;
+            document.getElementById('subscription-status').innerText = 'Error checking subscription.';
             updateUI();
           });
       }
@@ -474,31 +541,38 @@
 
     let angle = 0;
     function setup() {
-      let canvas = createCanvas(400, 150);
+      let canvas = createCanvas(windowWidth > 480 ? 400 : windowWidth * 0.9, 150);
       canvas.parent('mining-visual');
+      canvas.style('display', 'block');
+      canvas.style('margin', '0 auto');
+    }
+    function windowResized() {
+      resizeCanvas(windowWidth > 480 ? 400 : windowWidth * 0.9, 150);
     }
     function draw() {
       background(40, 40, 46);
       push();
       translate(width / 2, height / 1.5);
       rotate(angle);
-      fill(150);
+      fill(150, 150, 150, 200);
       ellipse(0, 0, 80, 80);
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         push();
-        rotate(i * HALF_PI);
-        fill(100);
-        rect(-10, -40, 20, 40);
+        rotate(i * TWO_PI / 8);
+        fill(100, 100, 100, 180);
+        let bladeLength = 40 * (1 + (state.mining.speed.value - 0.5) / 2);
+        rect(-10, -bladeLength / 2, 20, bladeLength, 5);
         pop();
       }
-      angle += 0.1 * (state.mining.speed.value / 0.5);
+      angle += 0.05 * (state.mining.speed.value / 0.5);
       pop();
       fill(0, 100, 255, 100);
       rect(0, height / 2, width, height / 4);
       fill(50);
       rect(width - 80, 20, 60, 80, 10);
-      fill(0, 255, 0, map(state.mining.currentEnergy, 0, state.mining.capacity.value, 0, 255));
-      rect(width - 75, 25, 50, 70 * (state.mining.currentEnergy / state.mining.capacity.value), 10);
+      let fillHeight = 70 * (state.mining.currentEnergy / state.mining.capacity.value);
+      fill(0, 255, 0, map(fillHeight, 0, 70, 0, 255));
+      rect(width - 75, 95 - fillHeight, 50, fillHeight, 10);
       fill(255);
       textSize(12);
       textAlign(CENTER, CENTER);
